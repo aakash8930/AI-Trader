@@ -151,9 +151,9 @@ def _optimize_long_threshold(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[fl
     best_score = -1e9
     best_stats = {}
 
-    min_pred_trades = max(25, int(0.02 * len(y_true)))
+    min_pred_trades = max(50, int(0.02 * len(y_true)))
 
-    for th in np.arange(0.45, 0.71, 0.01):
+    for th in np.arange(0.45, 0.71, 0.005):
         preds = (y_prob >= th).astype(int)
         pred_count = int(preds.sum())
         if pred_count < min_pred_trades:
@@ -164,8 +164,9 @@ def _optimize_long_threshold(y_true: np.ndarray, y_prob: np.ndarray) -> tuple[fl
         f1 = float(f1_score(y_true, preds, zero_division=0))
         trade_rate = float(preds.mean())
 
-        # Precision-biased score with mild turnover penalty.
-        score = 0.70 * precision + 0.25 * f1 + 0.05 * recall - max(0.0, trade_rate - 0.35) * 0.10
+        # Precision-focused scoring: prioritize precision to reduce false positives.
+        # Trade frequency penalty discourages over-trading.
+        score = 0.75 * precision + 0.15 * f1 + 0.05 * recall - max(0.0, trade_rate - 0.30) * 0.15
 
         if score > best_score:
             best_score = score

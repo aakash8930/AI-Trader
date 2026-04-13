@@ -23,3 +23,23 @@ data_outputs/
 # IDE
 .vscode/
 .idea/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# Models (large files)
+*.pt
+*.pth
+scaler.save

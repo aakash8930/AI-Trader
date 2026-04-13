@@ -3,7 +3,7 @@
 from typing import List
 import numpy as np
 
-from execution.regime import detect_regime, MarketRegime
+from execution.regime_controller import RegimeController, MarketRegime
 
 
 class EnsembleDirectionModel:
@@ -27,16 +27,17 @@ class EnsembleDirectionModel:
     def predict_proba(self, df):
         probs = np.array([m.predict_proba(df) for m in self.models])
 
-        regime = detect_regime(df)
+        regime_ctrl = RegimeController()
+        regime = regime_ctrl.detect(df)
         weights = self._weights_for_regime(regime)
 
         # Keep thresholds synchronized with the same regime weighting used for probabilities.
         long_th = self._aggregate_threshold(weights, "long_threshold", default=0.55)
         short_th = self._aggregate_threshold(weights, "short_threshold", default=0.45)
 
-        # Conservative nudge in choppy markets.
-        if regime == MarketRegime.CHOPPY:
-            long_th += 0.01
+        # Conservative nudge in sideways markets.
+        if regime == MarketRegime.SIDEWAYS:
+            long_th += 0.02
             short_th -= 0.01
 
         self.long_threshold = float(np.clip(long_th, 0.45, 0.70))
@@ -61,12 +62,12 @@ class EnsembleDirectionModel:
         # models[0] = symbol model
         # models[1] = BTC context model (if exists)
 
-        if regime == MarketRegime.TRENDING:
+        if regime == MarketRegime.TREND_STRONG:
             return np.array([0.7, 0.3])[:n]
 
-        if regime == MarketRegime.RANGING:
-            return np.array([0.85, 0.15])[:n]
+        if regime == MarketRegime.TREND_WEAK:
+            return np.array([0.80, 0.20])[:n]
 
-        # CHOPPY → be conservative
-        return np.array([0.6, 0.4])[:n]
+        # SIDEWAYS → be conservative
+        return np.array([0.55, 0.45])[:n]
 

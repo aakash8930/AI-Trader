@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-trader}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-trading_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-trader}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  trading-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-trader}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-trading_db}?sslmode=disable
+      TRADING_MODE: ${TRADING_MODE:-shadow}
+      TRADING_TIMEFRAME: ${TRADING_TIMEFRAME:-15m}
+      LOOKBACK_BARS: ${LOOKBACK_BARS:-300}
+      LOOP_SLEEP_SECONDS: ${LOOP_SLEEP_SECONDS:-20}
+      TRADING_SYMBOLS: ${TRADING_SYMBOLS:-BTC/USDT,ETH/USDT}
+      EXCLUDED_SYMBOLS: ${EXCLUDED_SYMBOLS:-}
+      PAPER_STARTING_BALANCE_USDT: ${PAPER_STARTING_BALANCE_USDT:-1000}
+      ENTRY_COOLDOWN_MINUTES: ${ENTRY_COOLDOWN_MINUTES:-30}
+      RISK_PER_TRADE: ${RISK_PER_TRADE:-0.01}
+      MAX_ACTIVE_POSITIONS: ${MAX_ACTIVE_POSITIONS:-2}
+      REQUIRE_MODEL_QUALITY: ${REQUIRE_MODEL_QUALITY:-true}
+      MIN_MODEL_VAL_F1: ${MIN_MODEL_VAL_F1:-0.10}
+      MIN_MODEL_VAL_PRECISION: ${MIN_MODEL_VAL_PRECISION:-0.10}
+    volumes:
+      - ./logs:/app/logs
+      - ./data_outputs:/app/data_outputs
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

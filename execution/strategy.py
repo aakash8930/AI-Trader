@@ -13,24 +13,24 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 22.0
-    min_atr_pct: float = 0.0011
-    rsi_long_min: float = 45.0
-    rsi_long_max: float = 64.0
+    min_adx: float = 25.0
+    min_atr_pct: float = 0.0012
+    rsi_long_min: float = 48.0
+    rsi_long_max: float = 68.0
 
     # Threshold handling
-    base_long_threshold: float = 0.50
+    base_long_threshold: float = 0.51
 
     # Risk / reward
-    stop_atr_mult: float = 1.30
-    take_atr_mult: float = 3.80
+    stop_atr_mult: float = 1.00
+    take_atr_mult: float = 3.00
 
     # Trading costs
     fee_pct_per_side: float = 0.0010
     slippage_pct_per_side: float = 0.0008
 
     # Positive edge only
-    min_expected_edge: float = 0.00020
+    min_expected_edge: float = 0.00008
 
     # Profit management
     trail_activate_atr_mult: float = 1.0
