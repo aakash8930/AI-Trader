@@ -21,8 +21,8 @@ def build_strategy_config(settings: LiveSettings) -> StrategyConfig:
         trail_activate_atr_mult=1.0,
         trail_atr_mult=1.0,
         cooldown_minutes=settings.cooldown_minutes,
-        min_expected_edge=0.00008,
-        base_long_threshold=0.51,
+        min_expected_edge=0.00005,
+        base_long_threshold=0.49,
     )
 
 
