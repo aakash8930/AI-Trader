@@ -72,7 +72,7 @@ class MarketDataFetcher:
                     MarketDataFetcher._supported_symbols = set(markets.keys())
                 except Exception as e:
                     sanitized = _sanitize_error_msg(e)
-                    print(f"[FETCHER] Warning: could not load market symbols: {sanitized}")
+                    print(f"[FETCHER] Warning: could not load market symbols: {sanitized}", flush=True)
                     MarketDataFetcher._supported_symbols = set()
 
         self.exchange = MarketDataFetcher._exchange
@@ -91,35 +91,35 @@ class MarketDataFetcher:
         for idx, exchange_name in enumerate(attempts):
             try:
                 if idx > 0:
-                    print(f"[FETCHER] trying fallback exchange: {exchange_name}")
+                    print(f"[FETCHER] trying fallback exchange: {exchange_name}", flush=True)
                 else:
-                    print(f"[FETCHER] attempting to connect to {exchange_name}...")
+                    print(f"[FETCHER] attempting to connect to {exchange_name}...", flush=True)
 
                 exchange = self._create_exchange(exchange_name, timeout_ms)
                 exchange.load_markets()
 
-                print(f"[FETCHER] ✓ using exchange: {exchange_name}")
+                print(f"[FETCHER] ✓ using exchange: {exchange_name}", flush=True)
                 return exchange, exchange_name
 
             except ExchangeNotAvailable as e:
                 sanitized = _sanitize_error_msg(e)
                 errors[exchange_name] = f"unavailable: {sanitized}"
-                print(f"[FETCHER] {exchange_name} unavailable: {sanitized}")
+                print(f"[FETCHER] {exchange_name} unavailable: {sanitized}", flush=True)
 
             except (NetworkError, RequestTimeout) as e:
                 sanitized = _sanitize_error_msg(e)
                 errors[exchange_name] = f"network error: {sanitized}"
-                print(f"[FETCHER] {exchange_name} network error: {sanitized}")
+                print(f"[FETCHER] {exchange_name} network error: {sanitized}", flush=True)
 
             except ExchangeError as e:
                 sanitized = _sanitize_error_msg(e)
                 errors[exchange_name] = f"exchange error: {sanitized}"
-                print(f"[FETCHER] {exchange_name} exchange error: {sanitized}")
+                print(f"[FETCHER] {exchange_name} exchange error: {sanitized}", flush=True)
 
             except Exception as e:
                 sanitized = _sanitize_error_msg(e)
                 errors[exchange_name] = f"unexpected error: {sanitized}"
-                print(f"[FETCHER] {exchange_name} unexpected error: {sanitized}")
+                print(f"[FETCHER] {exchange_name} unexpected error: {sanitized}", flush=True)
 
         error_summary = "\n".join(f"  - {name}: {err}" for name, err in errors.items())
         raise RuntimeError(
