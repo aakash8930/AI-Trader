@@ -32,6 +32,7 @@ try:
     from config.live import LiveSettings
     settings = LiveSettings.from_env()
     print(f"[DIAG 2/7] ✓ mode={settings.mode}, symbols={settings.symbols}", flush=True)
+print(f"[DIAG 2/7] full env check: {os.environ.get('TRADING_SYMBOLS', 'not set')}", flush=True)
 except Exception as e:
     print(f"[DIAG 2/7] ✗ {e}", flush=True)
     traceback.print_exc()

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(ls -la models/*/)",
-      "Bash(dir models:*)"
+      "Bash(dir models:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
     ]
   }
 }
