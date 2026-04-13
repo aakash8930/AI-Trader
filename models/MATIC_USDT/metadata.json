@@ -1,0 +1,27 @@
+{
+  "model_name": "RUDRA-ALPHA",
+  "model_version": "v1.1",
+  "symbol": "MATIC/USDT",
+  "feature_columns": [
+    "ema_fast",
+    "ema_slow",
+    "rsi",
+    "ret",
+    "vol",
+    "atr_pct",
+    "adx"
+  ],
+  "horizon": 5,
+  "atr_multiplier": 0.8,
+  "timeframe": "15m",
+  "train_rows": 626,
+  "val_rows": 160,
+  "trained_at_utc": "2026-03-03T01:34:12.822303+00:00",
+  "metrics": {
+    "val_accuracy": 0.45625,
+    "val_precision": 0.30701754385964913,
+    "val_recall": 0.813953488372093,
+    "val_f1": 0.445859872611465,
+    "val_positive_rate": 0.7125
+  }
+}
