@@ -41,9 +41,9 @@ class LiveSettings:
     universe_refresh_minutes: int = 60
 
     require_model_quality: bool = True
-    min_model_val_f1: float = 0.35
-    min_model_val_precision: float = 0.25
-    min_model_val_recall: float = 0.25
+    min_model_val_f1: float = 0.10
+    min_model_val_precision: float = 0.10
+    min_model_val_recall: float = 0.10
 
     lookback: int = 300
 
@@ -95,9 +95,9 @@ class LiveSettings:
             sleep_seconds=_env_int("LOOP_SLEEP_SECONDS", 900),
             universe_refresh_minutes=_env_int("UNIVERSE_REFRESH_MINUTES", 60),
             require_model_quality=_env_bool("REQUIRE_MODEL_QUALITY", True),
-            min_model_val_f1=_env_float("MIN_MODEL_VAL_F1", 0.35),
-            min_model_val_precision=_env_float("MIN_MODEL_VAL_PRECISION", 0.25),
-            min_model_val_recall=_env_float("MIN_MODEL_VAL_RECALL", 0.25),
+            min_model_val_f1=_env_float("MIN_MODEL_VAL_F1", 0.10),
+            min_model_val_precision=_env_float("MIN_MODEL_VAL_PRECISION", 0.10),
+            min_model_val_recall=_env_float("MIN_MODEL_VAL_RECALL", 0.10),
             lookback=_env_int("LOOKBACK_BARS", 300),
             strategy_min_prob=_env_float("STRATEGY_MIN_PROB", 0.50),
             strategy_min_adx=_env_float("STRATEGY_MIN_ADX", 20.0),

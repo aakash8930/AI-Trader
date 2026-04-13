@@ -4,7 +4,10 @@
       "Bash(ls -la models/*/)",
       "Bash(dir models:*)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
