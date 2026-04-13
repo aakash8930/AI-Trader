@@ -4,7 +4,7 @@
   },
   "deploy": {
     "numReplicas": 1,
-    "startCommand": "python -u diagnose.py",
+    "startCommand": "python -u main.py",
     "region": "ap-southeast-1"
   }
 }

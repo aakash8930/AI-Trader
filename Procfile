@@ -1,1 +1,1 @@
-worker: python -u diagnose.py
+worker: python -u main.py
