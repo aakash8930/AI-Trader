@@ -56,7 +56,7 @@ except Exception as e:
 # ---- 4. Test data fetch ----
 print("[DIAG 4/7] Fetching BTC/USDT candle...", flush=True)
 try:
-    df = fetcher.fetch_ohlcv("BTC/USDT", "15m", limit=10)
+    df = fetcher.fetch_ohlcv("BTC/USDT", "15m", limit=300)
     print(f"[DIAG 4/7] ✓ fetched {len(df)} rows", flush=True)
 except Exception as e:
     print(f"[DIAG 4/7] ✗ {e}", flush=True)

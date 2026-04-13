@@ -5,6 +5,8 @@ import ta
 import numpy as np
 import pandas as pd
 
+MIN_CANDLES = 220  # EMA200 needs 200, plus buffer for rolling windows
+
 
 def compute_core_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -13,6 +15,12 @@ def compute_core_features(df: pd.DataFrame) -> pd.DataFrame:
     - regime detection
     - strategy
     """
+
+    if len(df) < MIN_CANDLES:
+        raise ValueError(
+            f"compute_core_features requires at least {MIN_CANDLES} candles, "
+            f"got {len(df)}. Check that exchange returned sufficient historical data."
+        )
 
     df = df.copy()
 
