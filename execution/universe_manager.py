@@ -14,6 +14,8 @@ class UniverseManager:
     - If selector finds no valid long-ready symbols, the universe goes flat.
     - No fallback to weak symbols during bad market conditions.
     - Switches symbols only when the new candidate set is meaningfully better.
+    - Tracks per-symbol ADX failure count to avoid selecting symbols that
+      repeatedly fail the execution min_adx gate.
     """
 
     def __init__(
@@ -41,6 +43,15 @@ class UniverseManager:
         self.active_symbols: List[str] = []
         self.active_scores: dict[str, float] = {}
         self.min_symbol_switch_gap = min_symbol_switch_gap
+
+        # Per-symbol consecutive ADX failure counter — prevents selecting symbols
+        # that pass CoinSelector but repeatedly fail the execution min_adx gate.
+        self._adx_fail_count: dict[str, int] = {}
+        self._adx_fail_max = 3   # remove from universe after N consecutive ADX fails
+        self._adx_fail_cooldown_secs = 1800  # 30 min blackout after ADX blacklist
+
+        # Timestamps when a symbol was ADX-blacklisted
+        self._adx_blacklist: dict[str, float] = {}
 
         self.selector = CoinSelector(
             timeframe=timeframe,
@@ -79,6 +90,7 @@ class UniverseManager:
             print("[Universe] selector found no valid symbols → going flat")
             self.active_symbols = []
             self.active_scores = {}
+            self._adx_fail_count.clear()
             return self.active_symbols
 
         candidate_scores = self._scores_for_symbols(candidate_symbols)
@@ -86,6 +98,28 @@ class UniverseManager:
         # If candidate symbols cannot be scored, also go flat
         if not candidate_scores:
             print("[Universe] candidate symbols could not be scored → going flat")
+            self.active_symbols = []
+            self.active_scores = {}
+            self._adx_fail_count.clear()
+            return self.active_symbols
+
+        # Filter out blacklisted ADX symbols (check cooldown)
+        cleaned_candidates = []
+        for s in candidate_symbols:
+            if s in self._adx_blacklist:
+                if now - self._adx_blacklist[s] < self._adx_fail_cooldown_secs:
+                    # Still in cooldown — skip this symbol this cycle
+                    continue
+                else:
+                    # Cooldown expired — remove from blacklist, reset counter
+                    del self._adx_blacklist[s]
+                    self._adx_fail_count.pop(s, None)
+            cleaned_candidates.append(s)
+        candidate_symbols = cleaned_candidates
+
+        # Re-evaluate if we still have candidates after blacklist filter
+        if not candidate_symbols:
+            print("[Universe] all candidates blocked by ADX blacklist → going flat")
             self.active_symbols = []
             self.active_scores = {}
             return self.active_symbols
@@ -129,3 +163,20 @@ class UniverseManager:
             self.active_scores = current_scores
 
         return self.active_symbols
+
+    def register_adx_fail(self, symbol: str) -> None:
+        """
+        Called by the runner/multirunner when a symbol fails the min_adx gate.
+        After _adx_fail_max consecutive failures, the symbol is blacklisted
+        from the universe for _adx_fail_cooldown_secs seconds.
+        """
+        if symbol not in self.active_symbols:
+            return
+        self._adx_fail_count[symbol] = self._adx_fail_count.get(symbol, 0) + 1
+        count = self._adx_fail_count[symbol]
+        if count >= self._adx_fail_max:
+            self._adx_blacklist[symbol] = time.time()
+            print(
+                f"[Universe] {symbol} ADX-blacklisted for {self._adx_fail_cooldown_secs // 60}min "
+                f"after {count} consecutive adx_low failures"
+            )

@@ -13,17 +13,18 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 25.0
+    min_adx: float = 26.0
     min_atr_pct: float = 0.0012
     rsi_long_min: float = 48.0
     rsi_long_max: float = 68.0
+    rsi_strong_trend_max: float = 75.0  # relaxed RSI ceiling when ADX >= 30 and regime is TREND_STRONG
 
     # Threshold handling
-    base_long_threshold: float = 0.51
+    base_long_threshold: float = 0.49
 
     # Risk / reward
-    stop_atr_mult: float = 1.00
-    take_atr_mult: float = 3.00
+    stop_atr_mult: float = 1.50
+    take_atr_mult: float = 2.50
 
     # Trading costs
     fee_pct_per_side: float = 0.0010
@@ -33,8 +34,8 @@ class StrategyConfig:
     min_expected_edge: float = 0.00008
 
     # Profit management
-    trail_activate_atr_mult: float = 1.0
-    trail_atr_mult: float = 1.0
+    trail_activate_atr_mult: float = 0.5
+    trail_atr_mult: float = 0.5
 
     # Cooldown
     cooldown_minutes: int = 30
@@ -122,7 +123,7 @@ class StrategyEngine:
         elif adx >= 30:
             long_th -= 0.005
 
-        long_th = max(0.49, min(long_th, 0.58))
+        long_th = max(0.47, min(long_th, 0.58))
 
         stop_loss = price - atr * self.cfg.stop_atr_mult
         take_profit = price + atr * self.cfg.take_atr_mult
@@ -152,10 +153,20 @@ class StrategyEngine:
             base.reason = f"atr_pct_low({atr_pct:.4f}<{self.cfg.min_atr_pct:.4f})"
             return base
 
-        if not (self.cfg.rsi_long_min <= rsi <= self.cfg.rsi_long_max):
+        # Regime-aware RSI ceiling: use relaxed upper bound for strong trends
+        rsi_upper = self.cfg.rsi_long_max
+        is_strong_trend = (
+            "TREND_STRONG" in regime
+            and adx >= 30.0
+            and rsi <= self.cfg.rsi_strong_trend_max
+        )
+        if is_strong_trend:
+            rsi_upper = self.cfg.rsi_strong_trend_max
+
+        if not (self.cfg.rsi_long_min <= rsi <= rsi_upper):
             base.reason = (
                 f"rsi_out_of_range({rsi:.1f} not in "
-                f"[{self.cfg.rsi_long_min:.1f},{self.cfg.rsi_long_max:.1f}])"
+                f"[{self.cfg.rsi_long_min:.1f},{rsi_upper:.1f}])"
             )
             return base
 

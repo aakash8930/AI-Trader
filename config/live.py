@@ -41,9 +41,9 @@ class LiveSettings:
     universe_refresh_minutes: int = 60
 
     require_model_quality: bool = True
-    min_model_val_f1: float = 0.10
-    min_model_val_precision: float = 0.10
-    min_model_val_recall: float = 0.10
+    min_model_val_f1: float = 0.25
+    min_model_val_precision: float = 0.25
+    min_model_val_recall: float = 0.25
 
     lookback: int = 300
 

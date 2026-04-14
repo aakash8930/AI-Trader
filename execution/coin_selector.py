@@ -2,7 +2,15 @@ import os
 import numpy as np
 
 from data.fetcher import MarketDataFetcher
+from execution.model_quality import model_quality_ok
 from features.technicals import compute_core_features
+
+
+# Module-level thresholds — CoinSelector uses the same F1/prec/recall minimums
+# as the live system so universes are built from model-verified symbols only.
+_COIN_SELECTOR_MIN_F1 = 0.25
+_COIN_SELECTOR_MIN_PREC = 0.25
+_COIN_SELECTOR_MIN_RECALL = 0.25
 
 
 def _has_trained_model(symbol: str) -> bool:
@@ -12,6 +20,17 @@ def _has_trained_model(symbol: str) -> bool:
         and os.path.exists(os.path.join(folder, "scaler.save"))
         and os.path.exists(os.path.join(folder, "metadata.json"))
     )
+
+
+def _model_quality_ok(symbol: str) -> bool:
+    """Check model quality using the same thresholds as live execution."""
+    ok, _ = model_quality_ok(
+        symbol,
+        min_f1=_COIN_SELECTOR_MIN_F1,
+        min_precision=_COIN_SELECTOR_MIN_PREC,
+        min_recall=_COIN_SELECTOR_MIN_RECALL,
+    )
+    return ok
 
 
 class CoinSelector:
@@ -273,6 +292,14 @@ class CoinSelector:
         skipped = [s for s in supported if s not in eligible]
         if skipped:
             print(f"[CoinSelector] Skipped (no model): {skipped}")
+
+        # PRE-FILTER: reject symbols that don't meet model-quality gate BEFORE ranking.
+        # This prevents the universe from picking symbols that will immediately fail
+        # the model-quality check in multi_runner._filtered_active_symbols().
+        quality_rejected = [s for s in eligible if not _model_quality_ok(s)]
+        if quality_rejected:
+            print(f"[CoinSelector] Skipped (model-quality gate): {quality_rejected}")
+        eligible = [s for s in eligible if _model_quality_ok(s)]
 
         scores: dict[str, float] = {}
 

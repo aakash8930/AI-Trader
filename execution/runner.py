@@ -83,7 +83,15 @@ class TradingRunner:
         self.take_profit_1: float | None = None
         self._profit_lock_activated = False
 
+        # Cache of the last skip reason — used by multirunner to track ADX fails
+        self._last_skip_reason: str | None = None
+
         print(f"[AUTONOMOUS AI] {symbol} ready")
+
+    @property
+    def skip_reason(self) -> str | None:
+        """Returns the reason from the last skipped cycle, if any."""
+        return self._last_skip_reason
 
     def _should_skip_fetch(self) -> bool:
         if self.last_fetch_wallclock is None:
@@ -145,14 +153,16 @@ class TradingRunner:
         regime = self.regime_ctrl.detect(df)
         if not self.regime_ctrl.trading_allowed(regime):
             if hasattr(self.regime_ctrl, "skip_reason"):
-                print(f"[{self.symbol}] SKIP | {self.regime_ctrl.skip_reason(df)}")
+                self._last_skip_reason = self.regime_ctrl.skip_reason(df)
             else:
-                print(f"[{self.symbol}] SKIP | regime_block({regime})")
+                self._last_skip_reason = f"regime_block({regime})"
+            print(f"[{self.symbol}] SKIP | {self._last_skip_reason}")
             return
 
         supervisor_dec = self.supervisor.decide()
         if not supervisor_dec.trade_allowed:
-            print(f"[{self.symbol}] SKIP | supervisor_block({supervisor_dec.reason})")
+            self._last_skip_reason = f"supervisor_block({supervisor_dec.reason})"
+            print(f"[{self.symbol}] SKIP | {self._last_skip_reason}")
             return
 
         closed_price = float(df.iloc[-1]["close"])
@@ -200,6 +210,7 @@ class TradingRunner:
         dec = self.strategy.generate_signal(df, regime=str(regime))
 
         if not dec.side:
+            self._last_skip_reason = dec.reason
             print(f"[{self.symbol}] SKIP | {dec.reason}")
             return
 
@@ -212,6 +223,7 @@ class TradingRunner:
         )
 
         if qty <= 0:
+            self._last_skip_reason = "qty_zero"
             print(f"[{self.symbol}] SKIP | qty_zero")
             return
 
@@ -226,6 +238,7 @@ class TradingRunner:
         self.take_profit = dec.take_profit
         self.take_profit_1 = dec.price + dec.atr * (self.cfg.take_atr_mult / 2.0)
         self._profit_lock_activated = False
+        self._last_skip_reason = None  # successful entry — clear skip cache
 
         print(
             f"📈 OPEN {dec.side} {self.symbol} | "

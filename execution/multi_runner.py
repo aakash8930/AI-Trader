@@ -1,11 +1,11 @@
 #execution/multi_runner.py
 
 import time
-import json
-from pathlib import Path
+from collections import defaultdict
 
 from execution.runner import TradingRunner
 from execution.universe_manager import UniverseManager
+from execution.model_quality import model_quality_ok
 from config.live import LiveSettings
 from logs.logger import TradeLogger
 from execution.strategy import StrategyConfig
@@ -40,30 +40,61 @@ class MultiSymbolTradingSystem:
             exchange_timeout_ms=settings.exchange_timeout_ms,
         )
 
+        # Per-symbol consecutive rejection counters
+        self._model_reject_counts: dict[str, int] = defaultdict(int)
+        self._model_reject_max = 5           # blacklist after N rejects
+        self._model_reject_cooldown_secs = 3600  # 60 min blackout
+
+        # Timestamps when a symbol was blacklisted
+        self._model_blacklist: dict[str, float] = {}
+
     def _model_quality_ok(self, symbol: str) -> bool:
-        metadata_path = Path("models") / symbol.replace("/", "_") / "metadata.json"
-        if not metadata_path.exists():
-            return False
-
-        try:
-            data = json.loads(metadata_path.read_text(encoding="utf-8"))
-            metrics = data.get("metrics", {})
-        except Exception:
-            return False
-
-        return (
-            float(metrics.get("val_f1", 0.0)) >= self.settings.min_model_val_f1
-            and float(metrics.get("val_precision", 0.0)) >= self.settings.min_model_val_precision
-            and float(metrics.get("val_recall", 0.0)) >= self.settings.min_model_val_recall
+        ok, metrics = model_quality_ok(
+            symbol,
+            min_f1=self.settings.min_model_val_f1,
+            min_precision=self.settings.min_model_val_precision,
+            min_recall=self.settings.min_model_val_recall,
         )
+        if not ok and metrics:
+            print(
+                f"[{symbol}] model-quality gate | "
+                f"f1={metrics['val_f1']:.3f} prec={metrics['val_precision']:.3f} rec={metrics['val_recall']:.3f} "
+                f"(required f1>={self.settings.min_model_val_f1} prec>={self.settings.min_model_val_precision} rec>={self.settings.min_model_val_recall})"
+            )
+        return ok
 
     def _filtered_active_symbols(self, symbols: list[str]) -> list[str]:
+        now = time.time()
         filtered: list[str] = []
 
         for symbol in symbols:
+            # Check blacklist
+            if symbol in self._model_blacklist:
+                if now - self._model_blacklist[symbol] < self._model_reject_cooldown_secs:
+                    continue
+                else:
+                    # Cooldown expired — remove from blacklist, reset counter
+                    del self._model_blacklist[symbol]
+                    self._model_reject_counts[symbol] = 0
+
             if self.settings.require_model_quality and not self._model_quality_ok(symbol):
-                print(f"[{symbol}] rejected by model-quality gate")
+                self._model_reject_counts[symbol] = self._model_reject_counts.get(symbol, 0) + 1
+                count = self._model_reject_counts[symbol]
+
+                if count >= self._model_reject_max:
+                    self._model_blacklist[symbol] = now
+                    print(
+                        f"[{symbol}] model-quality BLACKLISTED for {self._model_reject_cooldown_secs // 60}min "
+                        f"after {count} consecutive rejections"
+                    )
+                else:
+                    print(f"[{symbol}] rejected by model-quality gate ({count}/{self._model_reject_max})")
                 continue
+
+            # Passed — reset counters
+            self._model_reject_counts[symbol] = 0
+            if symbol in self._model_blacklist:
+                del self._model_blacklist[symbol]
             filtered.append(symbol)
 
         return filtered
@@ -119,6 +150,15 @@ class MultiSymbolTradingSystem:
                     if symbol not in active_symbols:
                         continue
                     runner.run_once()
+
+                    # Track ADX failures per symbol — after N consecutive fails,
+                    # the universe manager blacklists the symbol.
+                    skip_reason = runner.skip_reason
+                    if skip_reason and skip_reason.startswith("adx_low"):
+                        self.universe.register_adx_fail(symbol)
+                    elif skip_reason is None and symbol in self.universe._adx_fail_count:
+                        # Successful entry — reset ADX fail counter
+                        self.universe._adx_fail_count.pop(symbol, None)
 
                 time.sleep(self.settings.sleep_seconds)
 
