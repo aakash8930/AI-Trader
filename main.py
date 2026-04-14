@@ -10,18 +10,19 @@ from logs.logger import TradeLogger
 
 def build_strategy_config(settings: LiveSettings) -> StrategyConfig:
     return StrategyConfig(
-        min_adx=25.0,
+        min_adx=26.0,
         min_atr_pct=0.0012,
-        rsi_long_min=48.0,
+        rsi_long_min=40.0,
         rsi_long_max=68.0,
+        rsi_strong_trend_max=75.0,
         fee_pct_per_side=settings.strategy_fee_pct_per_side,
         slippage_pct_per_side=settings.strategy_slippage_pct_per_side,
-        stop_atr_mult=1.00,
-        take_atr_mult=3.00,
-        trail_activate_atr_mult=1.0,
-        trail_atr_mult=1.0,
+        stop_atr_mult=1.50,
+        take_atr_mult=2.50,
+        trail_activate_atr_mult=0.5,
+        trail_atr_mult=0.5,
         cooldown_minutes=settings.cooldown_minutes,
-        min_expected_edge=0.00005,
+        min_expected_edge=0.00008,
         base_long_threshold=0.49,
     )
 

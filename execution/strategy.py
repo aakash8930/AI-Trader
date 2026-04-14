@@ -15,7 +15,7 @@ class StrategyConfig:
     # Core signal quality
     min_adx: float = 26.0
     min_atr_pct: float = 0.0012
-    rsi_long_min: float = 48.0
+    rsi_long_min: float = 40.0
     rsi_long_max: float = 68.0
     rsi_strong_trend_max: float = 75.0  # relaxed RSI ceiling when ADX >= 30 and regime is TREND_STRONG
 
