@@ -166,9 +166,10 @@ class CoinSelector:
 
             prob_up, model_long_th = self._model_probability_and_threshold(symbol, df)
 
-            # Slightly more permissive than before.
-            # Previous logs show many good trend symbols dying on RSI and strict thresholds.
-            adaptive_long_th = max(0.48, model_long_th - 0.01)
+            # Use the actual model threshold as the reference, not a fixed value.
+            # The hard reject margin is tighter than execution to let borderline
+            # candidates through CoinSelector without blocking strong-trend symbols.
+            adaptive_long_th = max(model_long_th - 0.015, 0.47)
 
             strong_trend = (
                 above_ema200
@@ -196,6 +197,11 @@ class CoinSelector:
 
             if prob_up < adaptive_long_th - 0.035:
                 reasons.append("prob_too_low")
+
+            # ADX hard reject: coin_selector min_adx matches execution min_adx=26.0.
+            # Symbols with ADX < 26 here will fail execution's adx_low gate and waste cycles.
+            if adx < 26.0:
+                reasons.append("adx_too_low")
 
             if not above_ema200 and dist_ema200 <= -0.035 and not momentum_override:
                 reasons.append("far_below_ema200")

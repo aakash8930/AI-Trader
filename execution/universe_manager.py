@@ -47,8 +47,8 @@ class UniverseManager:
         # Per-symbol consecutive ADX failure counter — prevents selecting symbols
         # that pass CoinSelector but repeatedly fail the execution min_adx gate.
         self._adx_fail_count: dict[str, int] = {}
-        self._adx_fail_max = 3   # remove from universe after N consecutive ADX fails
-        self._adx_fail_cooldown_secs = 1800  # 30 min blackout after ADX blacklist
+        self._adx_fail_max = 2   # remove from universe after N consecutive ADX fails
+        self._adx_fail_cooldown_secs = 900   # 15 min blackout after ADX blacklist
 
         # Timestamps when a symbol was ADX-blacklisted
         self._adx_blacklist: dict[str, float] = {}
@@ -169,9 +169,16 @@ class UniverseManager:
         Called by the runner/multirunner when a symbol fails the min_adx gate.
         After _adx_fail_max consecutive failures, the symbol is blacklisted
         from the universe for _adx_fail_cooldown_secs seconds.
+
+        Increments the fail counter for a symbol. If the symbol is already
+        blacklisted this is a no-op — the symbol stays blacklisted regardless
+        of how many more fails accumulate.
         """
+        if symbol in self._adx_blacklist:
+            return  # already blacklisted — ignore further fails
         if symbol not in self.active_symbols:
-            return
+            return  # not in universe — ignore
+
         self._adx_fail_count[symbol] = self._adx_fail_count.get(symbol, 0) + 1
         count = self._adx_fail_count[symbol]
         if count >= self._adx_fail_max:

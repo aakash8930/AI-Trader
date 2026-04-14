@@ -72,10 +72,11 @@ class MultiSymbolTradingSystem:
             if symbol in self._model_blacklist:
                 if now - self._model_blacklist[symbol] < self._model_reject_cooldown_secs:
                     continue
+                # Cooldown expired — remove from blacklist but KEEP the counter
+                # so the accumulated rejection count is preserved.
                 else:
-                    # Cooldown expired — remove from blacklist, reset counter
                     del self._model_blacklist[symbol]
-                    self._model_reject_counts[symbol] = 0
+                    # Counter is kept at its last value — if it was 4/5 it stays 4
 
             if self.settings.require_model_quality and not self._model_quality_ok(symbol):
                 self._model_reject_counts[symbol] = self._model_reject_counts.get(symbol, 0) + 1

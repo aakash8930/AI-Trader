@@ -123,7 +123,7 @@ class StrategyEngine:
         elif adx >= 30:
             long_th -= 0.005
 
-        long_th = max(0.47, min(long_th, 0.58))
+        long_th = max(0.44, min(long_th, 0.58))
 
         stop_loss = price - atr * self.cfg.stop_atr_mult
         take_profit = price + atr * self.cfg.take_atr_mult
