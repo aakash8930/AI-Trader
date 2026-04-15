@@ -93,6 +93,10 @@ class TradingRunner:
         """Returns the reason from the last skipped cycle, if any."""
         return self._last_skip_reason
 
+    @property
+    def has_open_position(self) -> bool:
+        return self.broker.position is not None
+
     def _should_skip_fetch(self) -> bool:
         if self.last_fetch_wallclock is None:
             return False
@@ -291,6 +295,12 @@ class TradingRunner:
             f"pnl={pnl:.4f} | balance={self.risk_state.current_balance:.2f} | "
             f"avg_entry={_fmt_price(avg_entry, self.symbol)} | adds={add_count}"
         )
+
+        self.stop_loss = None
+        self.take_profit = None
+        self.take_profit_1 = None
+        self._profit_lock_activated = False
+        self.last_decision = None
 
     def run_loop(self, sleep_seconds: int = 60):
         print(f"🚀 {self.symbol} loop started (sleep={sleep_seconds}s)")

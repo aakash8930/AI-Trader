@@ -18,6 +18,9 @@ class StrategyConfig:
     rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
     rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends can push RSI higher
     rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
+    weak_trend_min_adx: float = 24.0
+    weak_trend_min_prob_edge: float = 0.020
+    weak_trend_min_volume_ratio: float = 0.90
 
     # Threshold handling - adaptive based on market conditions
     base_long_threshold: float = 0.48  # Reduced from 0.49 - LINK trade entered at 0.492
@@ -113,6 +116,13 @@ class StrategyEngine:
         adx = float(row["adx"])
         atr_pct = float(row["atr_pct"])
         rsi = float(row["rsi"])
+        vol_ratio = 1.0
+
+        if "volume" in df.columns:
+            vol_ma = float(df["volume"].rolling(20).mean().iloc[-1])
+            cur_vol = float(row["volume"])
+            if pd.notna(vol_ma) and vol_ma > 0 and pd.notna(cur_vol):
+                vol_ratio = cur_vol / vol_ma
 
         prob_up = float(self.model.predict_proba(df))
 
@@ -176,6 +186,7 @@ class StrategyEngine:
             and adx >= 30.0
             and rsi <= self.cfg.rsi_strong_trend_max
         )
+        is_weak_trend = "TREND_WEAK" in regime and not is_strong_trend
         if is_strong_trend:
             rsi_upper = self.cfg.rsi_strong_trend_max
 
@@ -238,6 +249,31 @@ class StrategyEngine:
                 f"adx={adx:.1f}, atr_pct={atr_pct:.4f}, rsi={rsi:.1f})"
             )
             return base
+
+        prob_edge = prob_up - long_th
+        if is_weak_trend:
+            weak_trend_min_adx = max(self.cfg.min_adx, self.cfg.weak_trend_min_adx)
+            if adx < weak_trend_min_adx:
+                base.reason = (
+                    f"weak_trend_adx_low({adx:.1f}<{weak_trend_min_adx:.1f}, "
+                    f"prob_edge={prob_edge:+.3f})"
+                )
+                return base
+
+            if prob_edge < self.cfg.weak_trend_min_prob_edge:
+                base.reason = (
+                    f"weak_trend_prob_edge_low({prob_edge:+.3f}<"
+                    f"{self.cfg.weak_trend_min_prob_edge:.3f}, adx={adx:.1f})"
+                )
+                return base
+
+            if vol_ratio < self.cfg.weak_trend_min_volume_ratio:
+                base.reason = (
+                    f"weak_trend_volume_low({vol_ratio:.2f}<"
+                    f"{self.cfg.weak_trend_min_volume_ratio:.2f}, "
+                    f"prob_edge={prob_edge:+.3f})"
+                )
+                return base
 
         expected_edge = self._expected_edge(
             prob_up=prob_up,

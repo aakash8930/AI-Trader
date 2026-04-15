@@ -198,6 +198,8 @@ class CoinSelector:
                 and prob_up >= adaptive_long_th + 0.01
                 and dist_ema200 > -0.020
             )
+            weak_trend = not strong_trend and above_ema200 and bullish_cross
+            prob_edge = prob_up - adaptive_long_th
 
             reasons: list[str] = []
             final_blocker = None  # Track which filter was the deciding factor
@@ -245,6 +247,18 @@ class CoinSelector:
                 reasons.append("rsi_bad")
                 final_blocker = "rsi"
 
+            if weak_trend and prob_edge < 0.020:
+                reasons.append("weak_prob_edge")
+                final_blocker = "prob"
+
+            if weak_trend and adx < max(self.min_adx, 24.0):
+                reasons.append("weak_adx_too_low")
+                final_blocker = "adx"
+
+            if weak_trend and vol_ratio < 0.90:
+                reasons.append("weak_volume_too_low")
+                final_blocker = "volume"
+
             if reasons:
                 # Show how close the symbol was to passing
                 adx_margin = f"{adx - self.min_adx:+.1f}"
@@ -283,6 +297,8 @@ class CoinSelector:
 
             if momentum_override and not above_ema200:
                 score += 0.03
+
+            score += max(min(prob_edge, 0.10), -0.10) * 1.20
 
             # Mild penalty for late/extreme RSI, but no automatic rejection.
             if rsi > 68.0:  # Lowered from 72.0 - earlier penalty

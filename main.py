@@ -15,6 +15,9 @@ def build_strategy_config(settings: LiveSettings) -> StrategyConfig:
         rsi_long_min=settings.strategy_rsi_long_min,
         rsi_long_max=settings.strategy_rsi_long_max,
         rsi_strong_trend_max=settings.strategy_rsi_long_max + 6.0,  # 78.0 with current config
+        weak_trend_min_adx=settings.strategy_weak_trend_min_adx,
+        weak_trend_min_prob_edge=settings.strategy_weak_trend_min_prob_edge,
+        weak_trend_min_volume_ratio=settings.strategy_weak_trend_min_volume_ratio,
         fee_pct_per_side=settings.strategy_fee_pct_per_side,
         slippage_pct_per_side=settings.strategy_slippage_pct_per_side,
         stop_atr_mult=settings.strategy_stop_atr_mult,
@@ -43,6 +46,7 @@ def main():
         f"min_adx={strategy_cfg.min_adx:.1f} "
         f"rsi=[{strategy_cfg.rsi_long_min:.1f},{strategy_cfg.rsi_long_max:.1f}] "
         f"base_prob={strategy_cfg.base_long_threshold:.3f} "
+        f"weak_prob_edge={strategy_cfg.weak_trend_min_prob_edge:.3f} "
         f"atr_min={strategy_cfg.min_atr_pct:.4f} "
         f"edge_min={strategy_cfg.min_expected_edge:.5f}"
     )

@@ -129,6 +129,12 @@ class MultiSymbolTradingSystem:
     def _remove_inactive_runners(self, active_symbols: list[str]):
         inactive = [symbol for symbol in self.runners if symbol not in active_symbols]
         for symbol in inactive:
+            runner = self.runners[symbol]
+            if runner.has_open_position:
+                print(
+                    f"[SYSTEM] Retaining runner for {symbol} until open position is closed"
+                )
+                continue
             del self.runners[symbol]
             print(f"➖ Runner removed for {symbol}")
 
@@ -197,7 +203,7 @@ class MultiSymbolTradingSystem:
                 self._remove_inactive_runners(active_symbols)
 
                 for symbol, runner in list(self.runners.items()):
-                    if symbol not in active_symbols:
+                    if symbol not in active_symbols and not runner.has_open_position:
                         continue
                     runner.run_once()
 
@@ -209,6 +215,10 @@ class MultiSymbolTradingSystem:
                     elif skip_reason is None and symbol in self.universe._adx_fail_count:
                         # Successful entry — reset ADX fail counter
                         self.universe._adx_fail_count.pop(symbol, None)
+
+                    if symbol not in active_symbols and not runner.has_open_position:
+                        del self.runners[symbol]
+                        print(f"➖ Runner removed for {symbol}")
 
                 time.sleep(self.settings.sleep_seconds)
 
