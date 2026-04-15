@@ -13,22 +13,22 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 20.0
-    min_atr_pct: float = 0.0012
-    rsi_long_min: float = 40.0  # Reduced from 45.0
-    rsi_long_max: float = 68.0
-    rsi_strong_trend_max: float = 75.0  # relaxed RSI ceiling when ADX >= 30 and regime is TREND_STRONG
+    min_adx: float = 18.0  # Reduced from 20.0 - logs showed 3hr ADX compression (16-19 range)
+    min_atr_pct: float = 0.0010  # Reduced from 0.0012 - allow lower vol in low ADX regimes
+    rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
+    rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends can push RSI higher
+    rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
 
     # Threshold handling - adaptive based on market conditions
-    base_long_threshold: float = 0.49
-    model_threshold_offset: float = 0.015
+    base_long_threshold: float = 0.48  # Reduced from 0.49 - LINK trade entered at 0.492
+    model_threshold_offset: float = 0.012  # Reduced from 0.015 - tighter selector/runner alignment
     adaptive_threshold_enabled: bool = True
-    threshold_relaxation_for_strong_adx: float = 0.02  # Relax threshold when ADX is strong
-    threshold_floor: float = 0.44  # Absolute minimum threshold
+    threshold_relaxation_for_strong_adx: float = 0.025  # Increased from 0.02 - reward strong ADX more
+    threshold_floor: float = 0.42  # Reduced from 0.44 - allow borderline setups in low ADX regimes
 
     # Risk / reward
-    stop_atr_mult: float = 1.50
-    take_atr_mult: float = 2.50
+    stop_atr_mult: float = 1.25  # Reduced from 1.50 - tighter stops, LINK -0.33 loss showed wide stop
+    take_atr_mult: float = 2.75  # Increased from 2.50 - better R:R to compensate for lower win rate
 
     # Trading costs
     fee_pct_per_side: float = 0.0010

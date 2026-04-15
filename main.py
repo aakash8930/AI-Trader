@@ -14,7 +14,7 @@ def build_strategy_config(settings: LiveSettings) -> StrategyConfig:
         min_atr_pct=settings.strategy_min_atr_pct,
         rsi_long_min=settings.strategy_rsi_long_min,
         rsi_long_max=settings.strategy_rsi_long_max,
-        rsi_strong_trend_max=75.0,
+        rsi_strong_trend_max=settings.strategy_rsi_long_max + 6.0,  # 78.0 with current config
         fee_pct_per_side=settings.strategy_fee_pct_per_side,
         slippage_pct_per_side=settings.strategy_slippage_pct_per_side,
         stop_atr_mult=settings.strategy_stop_atr_mult,

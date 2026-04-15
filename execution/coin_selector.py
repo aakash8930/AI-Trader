@@ -60,10 +60,10 @@ class CoinSelector:
         lookback: int = 240,
         top_k: int = 4,
         min_atr_pct: float = 0.0008,
-        soft_min_volume_ratio: float = 0.15,
-        rsi_long_min: float = 40.0,
-        rsi_long_max: float = 76.0,
-        min_adx: float = 20.0,  # Reduced from 26.0 to allow more symbols
+        soft_min_volume_ratio: float = 0.12,  # Reduced from 0.15 - allow lower vol in quiet markets
+        rsi_long_min: float = 38.0,  # Reduced from 40.0 - match strategy.py
+        rsi_long_max: float = 70.0,  # Reduced from 74.0 - tighter than strategy (72.0) to avoid over-extended entries
+        min_adx: float = 17.0,  # Reduced from 20.0 - selector should be looser than runner
         exchange_name: str = "binance",
         exchange_fallbacks: list[str] | None = None,
         exchange_timeout_ms: int = 20000,
@@ -182,7 +182,7 @@ class CoinSelector:
             # Use the actual model threshold as the reference, not a fixed value.
             # The hard reject margin is tighter than execution to let borderline
             # candidates through CoinSelector without blocking strong-trend symbols.
-            adaptive_long_th = max(model_long_th - 0.015, 0.47)
+            adaptive_long_th = max(model_long_th - 0.012, 0.46)  # Tightened offset from 0.015
 
             strong_trend = (
                 above_ema200
@@ -212,28 +212,31 @@ class CoinSelector:
                 final_blocker = "volume"
 
             # Relaxed prob filter - let strategy engine make final call
-            if prob_up < adaptive_long_th - 0.050:  # Was 0.035, now more lenient
+            if prob_up < adaptive_long_th - 0.045:  # Tightened from 0.050 - reject worse candidates
                 reasons.append("prob_too_low")
                 final_blocker = "prob"
 
-            # ADX hard reject: reduced from 26.0 to 20.0 to allow borderline symbols.
-            # Strategy engine still applies its own min_adx filter.
+            # ADX hard reject: reduced to 17.0 to allow borderline symbols in low-vol regimes.
+            # Strategy engine still applies its own min_adx filter (18.0).
+            # Logs showed 3hr compression with ADX 16-19 - system went flat for hours.
             if adx < self.min_adx:
                 reasons.append("adx_too_low")
                 final_blocker = "adx"
 
-            if not above_ema200 and dist_ema200 <= -0.035 and not momentum_override:
+            # EMA200 filter: SOL had prob=0.53-0.56, adx=25-29 but rejected for price<EMA200
+            # Allow setups within 4% of EMA200 if momentum is building
+            if not above_ema200 and dist_ema200 <= -0.040 and not momentum_override:
                 reasons.append("far_below_ema200")
                 final_blocker = "ema"
 
             # RSI handling:
-            # - keep lower bound
+            # - keep lower bound (38.0 to catch early turns)
             # - relax upper bound in strong trends
             rsi_upper = self.rsi_long_max
             if strong_trend:
-                rsi_upper = max(rsi_upper, 82.0)
+                rsi_upper = max(rsi_upper, 80.0)  # Reduced from 82.0 - avoid late entries
             elif adx >= 32.0 and above_ema200 and bullish_cross:
-                rsi_upper = max(rsi_upper, 80.0)
+                rsi_upper = max(rsi_upper, 78.0)  # Reduced from 80.0
 
             if rsi < self.rsi_long_min:
                 reasons.append("rsi_too_low")
@@ -282,8 +285,8 @@ class CoinSelector:
                 score += 0.03
 
             # Mild penalty for late/extreme RSI, but no automatic rejection.
-            if rsi > 72.0:
-                score -= min((rsi - 72.0) * 0.006, 0.08)
+            if rsi > 68.0:  # Lowered from 72.0 - earlier penalty
+                score -= min((rsi - 68.0) * 0.008, 0.10)  # Steeper penalty
 
             score = float(max(score, 0.0))
 

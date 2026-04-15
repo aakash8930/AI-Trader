@@ -26,11 +26,11 @@ class UniverseManager:
         max_active: int,
         refresh_minutes: int = 60,
         selector_top_k_multiplier: int = 2,
-        selector_min_atr_pct: float = 0.001,
-        selector_soft_min_volume_ratio: float = 0.15,
-        selector_min_adx: float = 20.0,
-        selector_rsi_long_min: float = 40.0,
-        selector_rsi_long_max: float = 75.0,
+        selector_min_atr_pct: float = 0.0008,
+        selector_soft_min_volume_ratio: float = 0.12,
+        selector_min_adx: float = 17.0,
+        selector_rsi_long_min: float = 38.0,
+        selector_rsi_long_max: float = 70.0,  # Tighter than strategy (72.0) to avoid over-extended entries
         min_symbol_switch_gap: float = 0.03,
         exchange_name: str = "binance",
         exchange_fallbacks: List[str] | None = None,
@@ -46,7 +46,7 @@ class UniverseManager:
         self._flat_since: float = 0.0
         self._consecutive_flat_refreshes: int = 0
         self._fallback_mode: bool = False
-        self._fallback_activates_after_refreshes: int = 3  # After ~3 hours of flat, relax filters
+        self._fallback_activates_after_refreshes: int = 2  # Reduced from 3 - activate fallback after 2hrs
 
         self.active_symbols: List[str] = []
         self.active_scores: dict[str, float] = {}
@@ -54,9 +54,10 @@ class UniverseManager:
 
         # Per-symbol consecutive ADX failure counter — prevents selecting symbols
         # that pass CoinSelector but repeatedly fail the execution min_adx gate.
+        # Logs: BTC/SOL/AVAX all got blacklisted after 3 fails, keeping system flat for hours
         self._adx_fail_count: dict[str, int] = {}
-        self._adx_fail_max = 3   # remove from universe after N consecutive ADX fails
-        self._adx_fail_cooldown_secs = 1800  # 30 min blackout after ADX blacklist
+        self._adx_fail_max = 4   # Increased from 3 - allow one extra chance in low ADX regimes
+        self._adx_fail_cooldown_secs = 1200  # Reduced from 1800 - 20min vs 30min blackout
 
         # Timestamps when a symbol was ADX-blacklisted
         self._adx_blacklist: dict[str, float] = {}
@@ -94,15 +95,15 @@ class UniverseManager:
             flat_duration = now - self._flat_since if self._flat_since > 0 else 0
             hours_flat = flat_duration / 3600
 
-            if hours_flat >= 2.0:
-                # After 2 hours flat, refresh every 15 minutes
+            if hours_flat >= 1.5:
+                # After 1.5 hours flat, refresh every 10 minutes
+                return 600
+            elif hours_flat >= 0.75:
+                # After 45 min flat, refresh every 15 minutes
                 return 900
-            elif hours_flat >= 1.0:
-                # After 1 hour flat, refresh every 20 minutes
-                return 1200
             else:
-                # First hour: refresh every 30 minutes
-                return 1800
+                # First 45 min: refresh every 20 minutes
+                return 1200
         else:
             # Active trading: use normal refresh interval
             return self.refresh_seconds
