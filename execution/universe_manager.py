@@ -28,6 +28,7 @@ class UniverseManager:
         selector_top_k_multiplier: int = 2,
         selector_min_atr_pct: float = 0.001,
         selector_soft_min_volume_ratio: float = 0.15,
+        selector_min_adx: float = 20.0,
         selector_rsi_long_min: float = 40.0,
         selector_rsi_long_max: float = 75.0,
         min_symbol_switch_gap: float = 0.03,
@@ -54,8 +55,8 @@ class UniverseManager:
         # Per-symbol consecutive ADX failure counter — prevents selecting symbols
         # that pass CoinSelector but repeatedly fail the execution min_adx gate.
         self._adx_fail_count: dict[str, int] = {}
-        self._adx_fail_max = 2   # remove from universe after N consecutive ADX fails
-        self._adx_fail_cooldown_secs = 900   # 15 min blackout after ADX blacklist
+        self._adx_fail_max = 3   # remove from universe after N consecutive ADX fails
+        self._adx_fail_cooldown_secs = 1800  # 30 min blackout after ADX blacklist
 
         # Timestamps when a symbol was ADX-blacklisted
         self._adx_blacklist: dict[str, float] = {}
@@ -67,7 +68,7 @@ class UniverseManager:
             soft_min_volume_ratio=selector_soft_min_volume_ratio,
             rsi_long_min=selector_rsi_long_min,
             rsi_long_max=selector_rsi_long_max,
-            min_adx=20.0,  # Reduced from 26.0
+            min_adx=selector_min_adx,
             exchange_name=exchange_name,
             exchange_fallbacks=exchange_fallbacks,
             exchange_timeout_ms=exchange_timeout_ms,

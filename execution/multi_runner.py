@@ -35,6 +35,9 @@ class MultiSymbolTradingSystem:
             selector_top_k_multiplier=settings.selector_top_k_multiplier,
             selector_min_atr_pct=settings.selector_min_atr_pct,
             selector_soft_min_volume_ratio=settings.selector_soft_min_volume_ratio,
+            # Keep selector slightly more permissive than execution while avoiding
+            # large threshold mismatches that cause skip loops.
+            selector_min_adx=max(16.0, settings.strategy_min_adx - 1.5),
             exchange_name=settings.exchange_name,
             exchange_fallbacks=settings.exchange_fallbacks,
             exchange_timeout_ms=settings.exchange_timeout_ms,

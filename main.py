@@ -10,20 +10,23 @@ from logs.logger import TradeLogger
 
 def build_strategy_config(settings: LiveSettings) -> StrategyConfig:
     return StrategyConfig(
-        min_adx=26.0,
-        min_atr_pct=0.0012,
-        rsi_long_min=40.0,
-        rsi_long_max=68.0,
+        min_adx=settings.strategy_min_adx,
+        min_atr_pct=settings.strategy_min_atr_pct,
+        rsi_long_min=settings.strategy_rsi_long_min,
+        rsi_long_max=settings.strategy_rsi_long_max,
         rsi_strong_trend_max=75.0,
         fee_pct_per_side=settings.strategy_fee_pct_per_side,
         slippage_pct_per_side=settings.strategy_slippage_pct_per_side,
-        stop_atr_mult=1.50,
-        take_atr_mult=2.50,
+        stop_atr_mult=settings.strategy_stop_atr_mult,
+        take_atr_mult=settings.strategy_take_atr_mult,
         trail_activate_atr_mult=0.5,
-        trail_atr_mult=0.5,
+        trail_atr_mult=settings.strategy_trail_atr_mult,
         cooldown_minutes=settings.cooldown_minutes,
-        min_expected_edge=0.00008,
-        base_long_threshold=0.49,
+        min_expected_edge=settings.strategy_min_expected_edge,
+        base_long_threshold=settings.strategy_min_prob,
+        adaptive_threshold_enabled=settings.strategy_adaptive_threshold,
+        threshold_relaxation_for_strong_adx=settings.strategy_threshold_relaxation,
+        threshold_floor=settings.strategy_threshold_floor,
     )
 
 
@@ -35,6 +38,24 @@ def main():
 
     logger = TradeLogger()
     strategy_cfg = build_strategy_config(settings)
+    print(
+        "[SYSTEM] Strategy config | "
+        f"min_adx={strategy_cfg.min_adx:.1f} "
+        f"rsi=[{strategy_cfg.rsi_long_min:.1f},{strategy_cfg.rsi_long_max:.1f}] "
+        f"base_prob={strategy_cfg.base_long_threshold:.3f} "
+        f"atr_min={strategy_cfg.min_atr_pct:.4f} "
+        f"edge_min={strategy_cfg.min_expected_edge:.5f}"
+    )
+    if strategy_cfg.min_adx >= 24.0:
+        print(
+            "[SYSTEM] WARNING | STRATEGY_MIN_ADX is high for 15m momentum "
+            f"(current={strategy_cfg.min_adx:.1f}). Flat-mode risk is elevated."
+        )
+    if strategy_cfg.rsi_long_min >= 45.0:
+        print(
+            "[SYSTEM] WARNING | STRATEGY_RSI_LONG_MIN is strict "
+            f"(current={strategy_cfg.rsi_long_min:.1f}). Entry frequency may be low."
+        )
 
     try:
         if len(settings.symbols) > 1:

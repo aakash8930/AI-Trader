@@ -13,7 +13,7 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 22.0  # Reduced from 26.0 to allow more trades
+    min_adx: float = 20.0
     min_atr_pct: float = 0.0012
     rsi_long_min: float = 40.0  # Reduced from 45.0
     rsi_long_max: float = 68.0
@@ -21,6 +21,7 @@ class StrategyConfig:
 
     # Threshold handling - adaptive based on market conditions
     base_long_threshold: float = 0.49
+    model_threshold_offset: float = 0.015
     adaptive_threshold_enabled: bool = True
     threshold_relaxation_for_strong_adx: float = 0.02  # Relax threshold when ADX is strong
     threshold_floor: float = 0.44  # Absolute minimum threshold
@@ -118,7 +119,10 @@ class StrategyEngine:
         model_th = float(
             getattr(self.model, "long_threshold", self.cfg.base_long_threshold)
         )
-        long_th = max(model_th, self.cfg.base_long_threshold)
+        model_th = min(max(model_th, 0.35), 0.75)
+        # Keep execution threshold close to selector logic so candidates do not
+        # pass universe selection and then fail immediately in the runner.
+        long_th = max(self.cfg.base_long_threshold, model_th - self.cfg.model_threshold_offset)
 
         # Adaptive threshold relaxation based on ADX strength
         # Stronger trends deserve lower probability requirements
