@@ -12,10 +12,11 @@ class UniverseManager:
 
     Key behavior:
     - If selector finds no valid long-ready symbols, the universe goes flat.
-    - No fallback to weak symbols during bad market conditions.
+    - Fallback mode activates after extended flat periods to find borderline symbols.
     - Switches symbols only when the new candidate set is meaningfully better.
     - Tracks per-symbol ADX failure count to avoid selecting symbols that
       repeatedly fail the execution min_adx gate.
+    - Refreshes more frequently when flat to catch improving conditions.
     """
 
     def __init__(
@@ -40,6 +41,12 @@ class UniverseManager:
         self.refresh_seconds = refresh_minutes * 60
         self.last_refresh = 0.0
 
+        # Flat mode tracking - enables faster refresh and fallback logic
+        self._flat_since: float = 0.0
+        self._consecutive_flat_refreshes: int = 0
+        self._fallback_mode: bool = False
+        self._fallback_activates_after_refreshes: int = 3  # After ~3 hours of flat, relax filters
+
         self.active_symbols: List[str] = []
         self.active_scores: dict[str, float] = {}
         self.min_symbol_switch_gap = min_symbol_switch_gap
@@ -60,6 +67,7 @@ class UniverseManager:
             soft_min_volume_ratio=selector_soft_min_volume_ratio,
             rsi_long_min=selector_rsi_long_min,
             rsi_long_max=selector_rsi_long_max,
+            min_adx=20.0,  # Reduced from 26.0
             exchange_name=exchange_name,
             exchange_fallbacks=exchange_fallbacks,
             exchange_timeout_ms=exchange_timeout_ms,
@@ -73,21 +81,113 @@ class UniverseManager:
                 scores[symbol] = score
         return scores
 
+    def _get_refresh_interval(self) -> int:
+        """
+        Return refresh interval in seconds.
+        When flat for extended periods, refresh more frequently to catch
+        improving market conditions.
+        """
+        now = time.time()
+        if not self.active_symbols:
+            # Flat mode - check how long we've been flat
+            flat_duration = now - self._flat_since if self._flat_since > 0 else 0
+            hours_flat = flat_duration / 3600
+
+            if hours_flat >= 2.0:
+                # After 2 hours flat, refresh every 15 minutes
+                return 900
+            elif hours_flat >= 1.0:
+                # After 1 hour flat, refresh every 20 minutes
+                return 1200
+            else:
+                # First hour: refresh every 30 minutes
+                return 1800
+        else:
+            # Active trading: use normal refresh interval
+            return self.refresh_seconds
+
+    def _try_fallback_selection(self) -> List[str]:
+        """
+        When in fallback mode, try to find at least one symbol by relaxing filters.
+        Returns the best available symbol even if it doesn't pass all filters.
+        """
+        print("[Universe] FALLBACK MODE: attempting relaxed selection...")
+
+        # Score all symbols with relaxed criteria
+        fallback_scores: dict[str, float] = {}
+        for symbol in self.all_symbols:
+            if symbol in self._adx_blacklist:
+                continue
+
+            # Direct scoring without hard filters
+            score = self.selector._score_symbol(symbol)
+            if score is None:
+                continue
+            
+            ## Only allow borderline candidates, not completely bad ones
+            if score > -500: # instead of accepting everything
+                fallback_scores[symbol] = score
+
+        if not fallback_scores:
+            return []
+
+        # Return top symbol even with low score
+        ranked = sorted(fallback_scores, key=fallback_scores.get, reverse=True)
+        best = ranked[:1]
+        print(f"[Universe] FALLBACK: selected {best} as best available option")
+        return best
+
     def refresh_if_needed(self) -> List[str]:
         now = time.time()
 
-        # Do not refresh too often
-        if now - self.last_refresh < self.refresh_seconds:
+        # Dynamic refresh interval based on flat/active state
+        current_refresh_interval = self._get_refresh_interval()
+        if now - self.last_refresh < current_refresh_interval:
             return self.active_symbols
 
         self.last_refresh = now
 
+        # Track flat duration
+        if not self.active_symbols:
+            if self._flat_since == 0:
+                self._flat_since = now
+            self._consecutive_flat_refreshes += 1
+
+            # Activate fallback mode after N consecutive flat refreshes
+            if self._consecutive_flat_refreshes >= self._fallback_activates_after_refreshes:
+                if not self._fallback_mode:
+                    self._fallback_mode = True
+                    print(
+                        f"[Universe] FALLBACK MODE ACTIVATED | "
+                        f"flat for {self._consecutive_flat_refreshes} refreshes (~{self._consecutive_flat_refreshes} hours)"
+                    )
+        else:
+            # Reset flat tracking when we have active symbols
+            if self._flat_since > 0:
+                flat_hours = (now - self._flat_since) / 3600
+                print(f"[Universe] Exited flat mode after {flat_hours:.1f} hours")
+            self._flat_since = 0.0
+            self._consecutive_flat_refreshes = 0
+            self._fallback_mode = False
+
         ranked = self.selector.select(self.all_symbols)
         candidate_symbols = ranked[: self.max_active]
 
-        # If selector finds nothing valid, go flat
+        # If selector finds nothing valid, try fallback mode
+        if not candidate_symbols and self._fallback_mode:
+            fallback_candidates = self._try_fallback_selection()
+            if fallback_candidates:
+                print(
+                    f"[Universe] FALLBACK: using relaxed selection → {fallback_candidates}"
+                )
+                candidate_symbols = fallback_candidates
+
+        # If still no candidates, go flat
         if not candidate_symbols:
-            print("[Universe] selector found no valid symbols → going flat")
+            print(
+                f"[Universe] selector found no valid symbols → flat mode "
+                f"(consecutive_flat_refreshes={self._consecutive_flat_refreshes}, fallback={'ON' if self._fallback_mode else 'OFF'})"
+            )
             self.active_symbols = []
             self.active_scores = {}
             self._adx_fail_count.clear()

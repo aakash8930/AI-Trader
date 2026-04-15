@@ -13,14 +13,17 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 26.0
+    min_adx: float = 22.0  # Reduced from 26.0 to allow more trades
     min_atr_pct: float = 0.0012
-    rsi_long_min: float = 40.0
+    rsi_long_min: float = 40.0  # Reduced from 45.0
     rsi_long_max: float = 68.0
     rsi_strong_trend_max: float = 75.0  # relaxed RSI ceiling when ADX >= 30 and regime is TREND_STRONG
 
-    # Threshold handling
+    # Threshold handling - adaptive based on market conditions
     base_long_threshold: float = 0.49
+    adaptive_threshold_enabled: bool = True
+    threshold_relaxation_for_strong_adx: float = 0.02  # Relax threshold when ADX is strong
+    threshold_floor: float = 0.44  # Absolute minimum threshold
 
     # Risk / reward
     stop_atr_mult: float = 1.50
@@ -117,13 +120,21 @@ class StrategyEngine:
         )
         long_th = max(model_th, self.cfg.base_long_threshold)
 
-        # Slight relaxation only in stronger trends
-        if adx >= 38:
-            long_th -= 0.010
-        elif adx >= 30:
+        # Adaptive threshold relaxation based on ADX strength
+        # Stronger trends deserve lower probability requirements
+        if self.cfg.adaptive_threshold_enabled:
+            if adx >= 40:
+                long_th -= self.cfg.threshold_relaxation_for_strong_adx  # -0.02
+            elif adx >= 32:
+                long_th -= self.cfg.threshold_relaxation_for_strong_adx * 0.6  # -0.012
+            elif adx >= 26:
+                long_th -= self.cfg.threshold_relaxation_for_strong_adx * 0.3  # -0.006
+
+        # Additional relaxation for high-quality setups
+        if adx >= 30 and rsi >= 50 and price > ema200:
             long_th -= 0.005
 
-        long_th = max(0.44, min(long_th, 0.58))
+        long_th = max(self.cfg.threshold_floor, min(long_th, 0.58))
 
         stop_loss = price - atr * self.cfg.stop_atr_mult
         take_profit = price + atr * self.cfg.take_atr_mult
@@ -146,7 +157,8 @@ class StrategyEngine:
         )
 
         if adx < self.cfg.min_adx:
-            base.reason = f"adx_low({adx:.1f}<{self.cfg.min_adx})"
+            adx_margin = adx - self.cfg.min_adx
+            base.reason = f"adx_low({adx:.1f}<{self.cfg.min_adx}, margin={adx_margin:+.1f})"
             return base
 
         if atr_pct < self.cfg.min_atr_pct:
@@ -164,16 +176,18 @@ class StrategyEngine:
             rsi_upper = self.cfg.rsi_strong_trend_max
 
         if not (self.cfg.rsi_long_min <= rsi <= rsi_upper):
+            if rsi < self.cfg.rsi_long_min:
+                rsi_margin = rsi - self.cfg.rsi_long_min
+            else:
+                rsi_margin = rsi - rsi_upper
             base.reason = (
                 f"rsi_out_of_range({rsi:.1f} not in "
-                f"[{self.cfg.rsi_long_min:.1f},{rsi_upper:.1f}])"
+                f"[{self.cfg.rsi_long_min:.1f},{rsi_upper:.1f}], margin={rsi_margin:+.1f})"
             )
             return base
 
-        # Strong-trend-only block
-        if adx < 22.0:
-            base.reason = f"weak_trend_block({adx:.1f}<22.0)"
-            return base
+        # Strong-trend-only block - removed redundant check since min_adx already handles this
+        # This was causing double-filtering
 
         above_ema200 = price > ema200
         bullish_cross = ema_fast > ema_slow

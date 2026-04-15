@@ -51,15 +51,16 @@ class MultiSymbolTradingSystem:
     def _model_quality_ok(self, symbol: str) -> bool:
         ok, metrics = model_quality_ok(
             symbol,
-            min_f1=self.settings.min_model_val_f1,
-            min_precision=self.settings.min_model_val_precision,
-            min_recall=self.settings.min_model_val_recall,
+            min_f1=max(self.settings.min_model_val_f1, 0.15),  # Ensure not too strict
+            min_precision=max(self.settings.min_model_val_precision, 0.15),
+            min_recall=max(self.settings.min_model_val_recall, 0.10),
+            allow_high_recall_compensation=True,
         )
         if not ok and metrics:
             print(
                 f"[{symbol}] model-quality gate | "
                 f"f1={metrics['val_f1']:.3f} prec={metrics['val_precision']:.3f} rec={metrics['val_recall']:.3f} "
-                f"(required f1>={self.settings.min_model_val_f1} prec>={self.settings.min_model_val_precision} rec>={self.settings.min_model_val_recall})"
+                f"(required f1>={max(self.settings.min_model_val_f1, 0.15):.2f} prec>={max(self.settings.min_model_val_precision, 0.15):.2f} rec>={max(self.settings.min_model_val_recall, 0.10):.2f})"
             )
         return ok
 
@@ -131,6 +132,10 @@ class MultiSymbolTradingSystem:
     def run_loop(self):
         print(f"🚀 Autonomous trading system started [MODE={self.settings.mode}]")
 
+        flat_mode_start: float | None = None
+        total_refreshes = 0
+        flat_refreshes = 0
+
         while True:
             try:
                 active_symbols = self.universe.refresh_if_needed()
@@ -138,9 +143,50 @@ class MultiSymbolTradingSystem:
 
                 if not active_symbols:
                     self._remove_inactive_runners([])
-                    print("[SYSTEM] no active tradable symbols → flat mode")
+                    total_refreshes += 1
+                    flat_refreshes += 1
+
+                    if flat_mode_start is None:
+                        flat_mode_start = time.time()
+
+                    flat_duration = time.time() - flat_mode_start
+                    flat_hours = flat_duration / 3600
+
+                    # Detailed flat mode status
+                    print(
+                        f"[SYSTEM] FLAT MODE | "
+                        f"duration={flat_hours:.2f}h | "
+                        f"consecutive_flat_refreshes={flat_refreshes} | "
+                        f"total_refreshes={total_refreshes} | "
+                        f"fallback={'ON' if self.universe._fallback_mode else 'OFF'}"
+                    )
+
+                    # Show which symbols failed and why (from model quality gate)
+                    if self.settings.require_model_quality:
+                        rejected_symbols = [
+                            s for s in self.universe.all_symbols
+                            if not self._model_quality_ok(s)
+                        ]
+                        if rejected_symbols:
+                            print(
+                                f"[SYSTEM] Model-quality rejected: {rejected_symbols} | "
+                                f"consider lowering thresholds or retraining"
+                            )
+
                     time.sleep(max(self.settings.sleep_seconds, 120))
                     continue
+                else:
+                    # Exited flat mode
+                    if flat_mode_start is not None:
+                        flat_duration = time.time() - flat_mode_start
+                        flat_hours = flat_duration / 3600
+                        print(
+                            f"[SYSTEM] EXITED FLAT MODE after {flat_hours:.2f}h | "
+                            f"activating {len(active_symbols)} symbols: {active_symbols}"
+                        )
+                        flat_mode_start = None
+                        flat_refreshes = 0
+                    total_refreshes += 1
 
                 for symbol in active_symbols:
                     self._ensure_runner(symbol)

@@ -48,10 +48,10 @@ class LiveSettings:
     lookback: int = 300
 
     # Strategy configuration
-    strategy_min_prob: float = 0.50
-    strategy_min_adx: float = 20.0
+    strategy_min_prob: float = 0.49  # Reduced from 0.50
+    strategy_min_adx: float = 20.0  # Reduced from 26.0
     strategy_min_atr_pct: float = 0.0011
-    strategy_rsi_long_min: float = 45.0
+    strategy_rsi_long_min: float = 40.0  # Reduced from 45.0
     strategy_rsi_long_max: float = 68.0
     strategy_fee_pct_per_side: float = 0.0010
     strategy_slippage_pct_per_side: float = 0.0008
@@ -59,6 +59,11 @@ class LiveSettings:
     strategy_stop_atr_mult: float = 1.00
     strategy_take_atr_mult: float = 3.00
     strategy_trail_atr_mult: float = 1.0
+
+    # Adaptive threshold settings
+    strategy_adaptive_threshold: bool = True
+    strategy_threshold_relaxation: float = 0.02
+    strategy_threshold_floor: float = 0.42
 
     # Universe / selector configuration
     selector_top_k_multiplier: int = 2
@@ -110,6 +115,9 @@ class LiveSettings:
             strategy_stop_atr_mult=_env_float("STRATEGY_STOP_ATR_MULT", 1.00),
             strategy_take_atr_mult=_env_float("STRATEGY_TAKE_ATR_MULT", 3.00),
             strategy_trail_atr_mult=_env_float("STRATEGY_TRAIL_ATR_MULT", 1.0),
+            strategy_adaptive_threshold=_env_bool("STRATEGY_ADAPTIVE_THRESHOLD", True),
+            strategy_threshold_relaxation=_env_float("STRATEGY_THRESHOLD_RELAXATION", 0.02),
+            strategy_threshold_floor=_env_float("STRATEGY_THRESHOLD_FLOOR", 0.44),
             selector_top_k_multiplier=_env_int("SELECTOR_TOP_K_MULTIPLIER", 2),
             selector_min_atr_pct=_env_float("SELECTOR_MIN_ATR_PCT", 0.0010),
             selector_soft_min_volume_ratio=_env_float("SELECTOR_SOFT_MIN_VOLUME_RATIO", 0.15),

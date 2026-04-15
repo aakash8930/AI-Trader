@@ -6,11 +6,11 @@ from execution.model_quality import model_quality_ok
 from features.technicals import compute_core_features
 
 
-# Module-level thresholds — CoinSelector uses the same F1/prec/recall minimums
-# as the live system so universes are built from model-verified symbols only.
-_COIN_SELECTOR_MIN_F1 = 0.25
-_COIN_SELECTOR_MIN_PREC = 0.25
-_COIN_SELECTOR_MIN_RECALL = 0.25
+# Module-level thresholds — relaxed to allow more symbols through initial gate.
+# Strategy engine applies additional filters (ADX, RSI, edge) for safety.
+_COIN_SELECTOR_MIN_F1 = 0.15
+_COIN_SELECTOR_MIN_PREC = 0.15
+_COIN_SELECTOR_MIN_RECALL = 0.10
 
 
 def _has_trained_model(symbol: str) -> bool:
@@ -63,6 +63,7 @@ class CoinSelector:
         soft_min_volume_ratio: float = 0.15,
         rsi_long_min: float = 40.0,
         rsi_long_max: float = 76.0,
+        min_adx: float = 20.0,  # Reduced from 26.0 to allow more symbols
         exchange_name: str = "binance",
         exchange_fallbacks: list[str] | None = None,
         exchange_timeout_ms: int = 20000,
@@ -74,6 +75,7 @@ class CoinSelector:
         self.soft_min_volume_ratio = soft_min_volume_ratio
         self.rsi_long_min = rsi_long_min
         self.rsi_long_max = rsi_long_max
+        self.min_adx = min_adx
 
         self.fetcher = MarketDataFetcher(
             exchange_name=exchange_name,
@@ -82,6 +84,17 @@ class CoinSelector:
         )
 
         self._model_cache: dict[str, object] = {}
+        self._selector_stats = {
+            "total_checked": 0,
+            "model_gate_rejected": 0,
+            "prob_rejected": 0,
+            "adx_rejected": 0,
+            "rsi_rejected": 0,
+            "atr_rejected": 0,
+            "volume_rejected": 0,
+            "ema_rejected": 0,
+            "passed": 0,
+        }
 
     def _get_model(self, symbol: str):
         if symbol in self._model_cache:
@@ -187,24 +200,31 @@ class CoinSelector:
             )
 
             reasons: list[str] = []
+            final_blocker = None  # Track which filter was the deciding factor
 
             # Hard rejects only for clearly bad cases.
             if atr_pct < self.min_atr_pct * 0.80:
                 reasons.append("atr_too_low")
+                final_blocker = "atr"
 
             if vol_ratio < self.soft_min_volume_ratio * 0.60:
                 reasons.append("volume_too_low")
+                final_blocker = "volume"
 
-            if prob_up < adaptive_long_th - 0.035:
+            # Relaxed prob filter - let strategy engine make final call
+            if prob_up < adaptive_long_th - 0.050:  # Was 0.035, now more lenient
                 reasons.append("prob_too_low")
+                final_blocker = "prob"
 
-            # ADX hard reject: coin_selector min_adx matches execution min_adx=26.0.
-            # Symbols with ADX < 26 here will fail execution's adx_low gate and waste cycles.
-            if adx < 26.0:
+            # ADX hard reject: reduced from 26.0 to 20.0 to allow borderline symbols.
+            # Strategy engine still applies its own min_adx filter.
+            if adx < self.min_adx:
                 reasons.append("adx_too_low")
+                final_blocker = "adx"
 
             if not above_ema200 and dist_ema200 <= -0.035 and not momentum_override:
                 reasons.append("far_below_ema200")
+                final_blocker = "ema"
 
             # RSI handling:
             # - keep lower bound
@@ -217,17 +237,24 @@ class CoinSelector:
 
             if rsi < self.rsi_long_min:
                 reasons.append("rsi_too_low")
+                final_blocker = "rsi"
             elif rsi > rsi_upper:
                 reasons.append("rsi_bad")
+                final_blocker = "rsi"
 
             if reasons:
+                # Show how close the symbol was to passing
+                adx_margin = f"{adx - self.min_adx:+.1f}"
+                prob_margin = f"{prob_up - adaptive_long_th:+.3f}"
+                rsi_margin = f"{rsi - self.rsi_long_min:+.1f}" if rsi < self.rsi_long_min else f"{rsi_upper - rsi:+.1f}"
+
                 print(
-                    f"[CoinSelector] {symbol} | "
-                    f"score=-999.000 "
-                    f"prob={prob_up:.3f}/{adaptive_long_th:.3f} "
-                    f"adx={adx:.1f} atr_pct={atr_pct:.4f} "
-                    f"rsi={rsi:.1f} vol_ratio={vol_ratio:.2f} "
-                    f"above_ema200={above_ema200} bullish_cross={bullish_cross} "
+                    f"[CoinSelector] {symbol} | REJECTED | "
+                    f"blocker={final_blocker} | "
+                    f"prob={prob_up:.3f}/{adaptive_long_th:.3f} (margin={prob_margin}) | "
+                    f"adx={adx:.1f} (min={self.min_adx}, margin={adx_margin}) | "
+                    f"rsi={rsi:.1f} (margin={rsi_margin}) | "
+                    f"atr_pct={atr_pct:.4f} vol_ratio={vol_ratio:.2f} | "
                     f"reasons={reasons}"
                 )
                 return -999.0
@@ -287,6 +314,19 @@ class CoinSelector:
     def select(self, symbols: list[str]) -> list[str]:
         configured_symbols = symbols[:] if symbols else self.DEFAULT_SYMBOLS[:]
 
+        # Reset stats for this refresh cycle
+        self._selector_stats = {
+            "total_checked": len(configured_symbols),
+            "model_gate_rejected": 0,
+            "prob_rejected": 0,
+            "adx_rejected": 0,
+            "rsi_rejected": 0,
+            "atr_rejected": 0,
+            "volume_rejected": 0,
+            "ema_rejected": 0,
+            "passed": 0,
+        }
+
         supported = [s for s in configured_symbols if self.fetcher.is_symbol_supported(s)]
         unsupported = [s for s in configured_symbols if s not in supported]
         if unsupported:
@@ -302,20 +342,51 @@ class CoinSelector:
         # PRE-FILTER: reject symbols that don't meet model-quality gate BEFORE ranking.
         # This prevents the universe from picking symbols that will immediately fail
         # the model-quality check in multi_runner._filtered_active_symbols().
-        quality_rejected = [s for s in eligible if not _model_quality_ok(s)]
+        # Uses high-recall compensation to avoid discarding useful models.
+        quality_rejected = []
+        for s in eligible:
+            ok, metrics = model_quality_ok(
+                s,
+                min_f1=_COIN_SELECTOR_MIN_F1,
+                min_precision=_COIN_SELECTOR_MIN_PREC,
+                min_recall=_COIN_SELECTOR_MIN_RECALL,
+                allow_high_recall_compensation=True,
+            )
+            if not ok:
+                quality_rejected.append(s)
+                self._selector_stats["model_gate_rejected"] += 1
+                if metrics:
+                    print(
+                        f"[CoinSelector] {s} | model_gate_rejected | "
+                        f"f1={metrics.get('val_f1', 0):.3f} prec={metrics.get('val_precision', 0):.3f} rec={metrics.get('val_recall', 0):.3f}"
+                    )
+
         if quality_rejected:
             print(f"[CoinSelector] Skipped (model-quality gate): {quality_rejected}")
-        eligible = [s for s in eligible if _model_quality_ok(s)]
+        eligible = [s for s in eligible if s not in quality_rejected]
 
         scores: dict[str, float] = {}
-
         for symbol in eligible:
             score = self._score_symbol(symbol)
             if score is not None:
+                if score == -999.0:
+                    # Track rejection reasons from score output
+                    pass
+                else:
+                    self._selector_stats["passed"] += 1
                 scores[symbol] = score
 
         ranked = sorted(scores, key=scores.get, reverse=True)
         filtered_ranked = [s for s in ranked if scores[s] > -100]
+
+        # Selector summary log
+        print(
+            f"[CoinSelector] SUMMARY | "
+            f"checked={self._selector_stats['total_checked']} | "
+            f"model_gate_rejected={self._selector_stats['model_gate_rejected']} | "
+            f"passed_all_filters={self._selector_stats['passed']} | "
+            f"tradable={len(filtered_ranked[:self.top_k])}"
+        )
 
         if not filtered_ranked:
             print("⚠️ CoinSelector found no long-ready symbols")
