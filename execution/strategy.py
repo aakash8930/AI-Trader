@@ -18,7 +18,7 @@ class StrategyConfig:
     rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
     rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends can push RSI higher
     rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
-    weak_trend_min_adx: float = 24.0
+    weak_trend_min_adx: float = 22.0  # Reduced from 24.0 - allow more weak trend entries
     weak_trend_min_prob_edge: float = 0.020
     weak_trend_min_volume_ratio: float = 0.90
 
@@ -30,8 +30,8 @@ class StrategyConfig:
     threshold_floor: float = 0.42  # Reduced from 0.44 - allow borderline setups in low ADX regimes
 
     # Risk / reward
-    stop_atr_mult: float = 1.25  # Reduced from 1.50 - tighter stops, LINK -0.33 loss showed wide stop
-    take_atr_mult: float = 2.75  # Increased from 2.50 - better R:R to compensate for lower win rate
+    stop_atr_mult: float = 2.0  # Updated from 1.25 - give trades more room
+    take_atr_mult: float = 2.5  # Updated from 2.75 - realistic targets
 
     # Trading costs
     fee_pct_per_side: float = 0.0010
@@ -42,7 +42,7 @@ class StrategyConfig:
 
     # Profit management
     trail_activate_atr_mult: float = 0.5
-    trail_atr_mult: float = 0.5
+    trail_atr_mult: float = 1.2  # Updated from 0.5 - lock in more profit
 
     # Cooldown
     cooldown_minutes: int = 30
