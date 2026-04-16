@@ -116,7 +116,7 @@ class MultiSymbolTradingSystem:
 
         # Sum balances from all active runners
         total = sum(
-            runner.broker.balance
+            runner.risk_state.current_balance
             for runner in self.runners.values()
         )
 
