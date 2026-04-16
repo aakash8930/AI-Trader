@@ -182,7 +182,12 @@ class CoinSelector:
             # Use the actual model threshold as the reference, not a fixed value.
             # The hard reject margin is tighter than execution to let borderline
             # candidates through CoinSelector without blocking strong-trend symbols.
-            adaptive_long_th = max(model_long_th - 0.012, 0.46)  # Tightened offset from 0.015
+            # CRITICAL FIX: Cap adjustment at +2% to prevent over-optimization
+            base_threshold = 0.48
+            dynamic_adjustment = model_long_th - base_threshold
+            max_adjustment = 0.02
+            capped_adjustment = min(dynamic_adjustment, max_adjustment)
+            adaptive_long_th = base_threshold + capped_adjustment
 
             strong_trend = (
                 above_ema200
@@ -251,7 +256,7 @@ class CoinSelector:
                 reasons.append("weak_prob_edge")
                 final_blocker = "prob"
 
-            if weak_trend and adx < max(self.min_adx, 24.0):
+            if weak_trend and adx < max(self.min_adx, 22.0):
                 reasons.append("weak_adx_too_low")
                 final_blocker = "adx"
 

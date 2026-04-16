@@ -73,6 +73,9 @@ class LiveSettings:
     selector_min_atr_pct: float = 0.0008  # Match coin_selector default
     selector_soft_min_volume_ratio: float = 0.12  # Reduced from 0.15
 
+    # Risk management
+    max_drawdown_pct: float = 0.03  # Circuit breaker threshold (3%)
+
     # Exchange configuration
     exchange_name: str = "binance"
     exchange_fallbacks: list[str] = field(default_factory=lambda: ["bybit", "kraken", "okx"])
@@ -127,6 +130,7 @@ class LiveSettings:
             selector_top_k_multiplier=_env_int("SELECTOR_TOP_K_MULTIPLIER", 2),
             selector_min_atr_pct=_env_float("SELECTOR_MIN_ATR_PCT", 0.0008),
             selector_soft_min_volume_ratio=_env_float("SELECTOR_SOFT_MIN_VOLUME_RATIO", 0.12),
+            max_drawdown_pct=_env_float("MAX_DRAWDOWN_PCT", 0.03),
             exchange_name=_env_str("EXCHANGE_NAME", "binance"),
             exchange_fallbacks=fallbacks,
             exchange_timeout_ms=_env_int("EXCHANGE_TIMEOUT_MS", 20000),

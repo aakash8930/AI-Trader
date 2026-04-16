@@ -9,6 +9,7 @@ from execution.model_quality import model_quality_ok
 from config.live import LiveSettings
 from logs.logger import TradeLogger
 from execution.strategy import StrategyConfig
+from risk.circuit_breaker import CircuitBreaker
 
 
 class MultiSymbolTradingSystem:
@@ -50,6 +51,10 @@ class MultiSymbolTradingSystem:
 
         # Timestamps when a symbol was blacklisted
         self._model_blacklist: dict[str, float] = {}
+
+        # Circuit breaker for drawdown protection
+        max_dd = getattr(settings, 'max_drawdown_pct', 0.03)
+        self.circuit_breaker = CircuitBreaker(max_drawdown_pct=max_dd)
 
     def _model_quality_ok(self, symbol: str) -> bool:
         ok, metrics = model_quality_ok(
@@ -103,6 +108,19 @@ class MultiSymbolTradingSystem:
             filtered.append(symbol)
 
         return filtered
+
+    def _get_total_balance(self) -> float:
+        """Get combined balance across all runners"""
+        if not self.runners:
+            return self.settings.starting_balance_usdt
+
+        # Sum balances from all active runners
+        total = sum(
+            runner.broker.balance
+            for runner in self.runners.values()
+        )
+
+        return total / len(self.runners) if self.runners else self.settings.starting_balance_usdt
 
     def _ensure_runner(self, symbol: str):
         if symbol in self.runners:
@@ -201,6 +219,21 @@ class MultiSymbolTradingSystem:
                     self._ensure_runner(symbol)
 
                 self._remove_inactive_runners(active_symbols)
+
+                # Check circuit breaker BEFORE running trades
+                current_balance = self._get_total_balance()
+
+                if not self.circuit_breaker.check(current_balance):
+                    print(f"[SYSTEM] Trading paused - drawdown limit reached")
+                    print(f"[SYSTEM] Will check again in 1 hour...")
+
+                    # Log status
+                    status = self.circuit_breaker.get_status()
+                    print(f"[SYSTEM] Status: {status}")
+
+                    # Sleep for 1 hour, then re-check
+                    time.sleep(3600)
+                    continue
 
                 for symbol, runner in list(self.runners.items()):
                     if symbol not in active_symbols and not runner.has_open_position:
