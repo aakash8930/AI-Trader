@@ -252,15 +252,15 @@ class CoinSelector:
                 reasons.append("rsi_bad")
                 final_blocker = "rsi"
 
-            if weak_trend and prob_edge < 0.020:
+            if weak_trend and prob_edge < 0.015:
                 reasons.append("weak_prob_edge")
                 final_blocker = "prob"
 
-            if weak_trend and adx < max(self.min_adx, 22.0):
+            if weak_trend and adx < max(self.min_adx, 18.0):
                 reasons.append("weak_adx_too_low")
                 final_blocker = "adx"
 
-            if weak_trend and vol_ratio < 0.90:
+            if weak_trend and vol_ratio < 0.75:
                 reasons.append("weak_volume_too_low")
                 final_blocker = "volume"
 

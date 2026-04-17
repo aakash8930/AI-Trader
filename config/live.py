@@ -53,9 +53,9 @@ class LiveSettings:
     strategy_min_atr_pct: float = 0.0010  # Reduced from 0.0011 - allow lower vol in quiet markets
     strategy_rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
     strategy_rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends push RSI higher
-    strategy_weak_trend_min_adx: float = 24.0
-    strategy_weak_trend_min_prob_edge: float = 0.020
-    strategy_weak_trend_min_volume_ratio: float = 0.90
+    strategy_weak_trend_min_adx: float = 18.0  # ✅ Reduced from 24.0
+    strategy_weak_trend_min_prob_edge: float = 0.015  # ✅ Reduced from 0.020
+    strategy_weak_trend_min_volume_ratio: float = 0.75  # ✅ Reduced from 0.90
     strategy_fee_pct_per_side: float = 0.0010
     strategy_slippage_pct_per_side: float = 0.0008
     strategy_min_expected_edge: float = 0.00008
@@ -115,9 +115,9 @@ class LiveSettings:
             strategy_min_atr_pct=_env_float("STRATEGY_MIN_ATR_PCT", 0.0010),
             strategy_rsi_long_min=_env_float("STRATEGY_RSI_LONG_MIN", 38.0),
             strategy_rsi_long_max=_env_float("STRATEGY_RSI_LONG_MAX", 72.0),
-            strategy_weak_trend_min_adx=_env_float("STRATEGY_WEAK_TREND_MIN_ADX", 24.0),
-            strategy_weak_trend_min_prob_edge=_env_float("STRATEGY_WEAK_TREND_MIN_PROB_EDGE", 0.020),
-            strategy_weak_trend_min_volume_ratio=_env_float("STRATEGY_WEAK_TREND_MIN_VOLUME_RATIO", 0.90),
+            strategy_weak_trend_min_adx=_env_float("STRATEGY_WEAK_TREND_MIN_ADX", 18.0),
+            strategy_weak_trend_min_prob_edge=_env_float("STRATEGY_WEAK_TREND_MIN_PROB_EDGE", 0.015),
+            strategy_weak_trend_min_volume_ratio=_env_float("STRATEGY_WEAK_TREND_MIN_VOLUME_RATIO", 0.75),
             strategy_fee_pct_per_side=_env_float("STRATEGY_FEE_PCT_PER_SIDE", 0.0010),
             strategy_slippage_pct_per_side=_env_float("STRATEGY_SLIPPAGE_PCT_PER_SIDE", 0.0008),
             strategy_min_expected_edge=_env_float("STRATEGY_MIN_EXPECTED_EDGE", 0.00008),

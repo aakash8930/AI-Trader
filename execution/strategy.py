@@ -18,9 +18,9 @@ class StrategyConfig:
     rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
     rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends can push RSI higher
     rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
-    weak_trend_min_adx: float = 22.0  # Reduced from 24.0 - allow more weak trend entries
-    weak_trend_min_prob_edge: float = 0.020
-    weak_trend_min_volume_ratio: float = 0.90
+    weak_trend_min_adx: float = 18.0  # Reduced from 24.0 - allow more weak trend entries
+    weak_trend_min_prob_edge: float = 0.015
+    weak_trend_min_volume_ratio: float = 0.75
 
     # Threshold handling - adaptive based on market conditions
     base_long_threshold: float = 0.48  # Reduced from 0.49 - LINK trade entered at 0.492
