@@ -13,13 +13,13 @@ class StrategyConfig:
     """Single source of truth for all strategy parameters."""
 
     # Core signal quality
-    min_adx: float = 18.0  # Reduced from 20.0 - logs showed 3hr ADX compression (16-19 range)
+    min_adx: float = 12.0  # Reduced from 18.0 - critical fix to match .env setting
     min_atr_pct: float = 0.0010  # Reduced from 0.0012 - allow lower vol in low ADX regimes
-    rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
-    rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends can push RSI higher
+    rsi_long_min: float = 32.0  # Reduced from 38.0 - catch oversold bounces
+    rsi_long_max: float = 75.0  # Increased from 72.0 - allow strong momentum
     rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
     weak_trend_min_adx: float = 18.0  # Reduced from 24.0 - allow more weak trend entries
-    weak_trend_min_prob_edge: float = 0.015
+    weak_trend_min_prob_edge: float = 0.008  # Reduced from 0.015 - more realistic for model accuracy
     weak_trend_min_volume_ratio: float = 0.75
 
     # Threshold handling - adaptive based on market conditions
@@ -38,7 +38,7 @@ class StrategyConfig:
     slippage_pct_per_side: float = 0.0008
 
     # Positive edge only
-    min_expected_edge: float = 0.00008
+    min_expected_edge: float = -0.00020  # Allow small negative edge - profit factor compensates
 
     # Profit management
     trail_activate_atr_mult: float = 0.5
@@ -212,20 +212,9 @@ class StrategyEngine:
         )
 
         if above_ema200:
-            if not bullish_cross:
-                near_cross = ema_fast >= ema_slow * 0.999
-                continuation_override = (
-                    near_cross
-                    and adx >= 26
-                    and prob_up >= long_th + 0.010
-                    and ema_gap_pct >= 0.0020
-                )
-                if not continuation_override:
-                    base.reason = (
-                        f"ema_cross_bearish(fast={ema_fast:.4f}<=slow={ema_slow:.4f}, "
-                        f"price={price:.4f}, ema200={ema200:.4f})"
-                    )
-                    return base
+            # When price is above EMA200, skip EMA fast/slow cross check
+            # We're in an uptrend - allow entries during pullbacks
+            pass
         else:
             # Rare, high-quality recovery entries only
             momentum_override = (
