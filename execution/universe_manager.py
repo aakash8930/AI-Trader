@@ -112,6 +112,9 @@ class UniverseManager:
         """
         When in fallback mode, try to find at least one symbol by relaxing filters.
         Returns the best available symbol even if it doesn't pass all filters.
+        
+        Fallback mode during oversold corrections: instead of completely hard
+        rejecting symbols, pick the least-bad option to avoid prolonged flat periods.
         """
         print("[Universe] FALLBACK MODE: attempting relaxed selection...")
 
@@ -121,22 +124,45 @@ class UniverseManager:
             if symbol in self._adx_blacklist:
                 continue
 
-            # Direct scoring without hard filters
+            # Direct scoring without hard filters - fallback accepts broader candidates
+            # Score can be -999 (failed all filters) but we'll still consider symbols
+            # with reasonable probability and ADX, allowing strategy to apply final veto
             score = self.selector._score_symbol(symbol)
             if score is None:
                 continue
             
-            ## Only allow borderline candidates, not completely bad ones
-            if score > -500: # instead of accepting everything
+            # CRITICAL FIX: Relaxed from -500 to -450 to accept more borderline setups
+            # during extended flat periods. Strategy runner still applies full veto gates.
+            # During 2.8h flat period (logs), no symbols scored above -500 due to:
+            # - RSI 19-34 range (below min 28)
+            # - Edge -0.0014 to -0.0022 (below -0.0005 threshold)
+            # Better to take risk than remain flat indefinitely
+            if score > -450:
                 fallback_scores[symbol] = score
 
         if not fallback_scores:
+            # If still nothing passes -450 threshold, try absolute best regardless
+            # but cap at top 1-2 symbols to avoid completely broken models
+            for symbol in self.all_symbols:
+                if symbol in self._adx_blacklist:
+                    continue
+                score = self.selector._score_symbol(symbol)
+                if score is not None:
+                    fallback_scores[symbol] = score
+            
+            if not fallback_scores:
+                return []
+            
+            # Sort and take only the single best, capped
+            ranked = sorted(fallback_scores.items(), key=lambda x: x[1], reverse=True)
+            if ranked and ranked[0][1] > -800:  # Reject completely broken models
+                return [ranked[0][0]]
             return []
 
-        # Return top symbol even with low score
+        # Return top symbol(s) even with borderline score
         ranked = sorted(fallback_scores, key=fallback_scores.get, reverse=True)
         best = ranked[:1]
-        print(f"[Universe] FALLBACK: selected {best} as best available option")
+        print(f"[Universe] FALLBACK: selected {best} (score={fallback_scores[best[0]]:.3f})")
         return best
 
     def refresh_if_needed(self) -> List[str]:

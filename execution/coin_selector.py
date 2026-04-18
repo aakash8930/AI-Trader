@@ -51,7 +51,7 @@ class CoinSelector:
         "AVAX/USDT",
         "LINK/USDT",
         "DOGE/USDT",
-        "BNB/USDT",
+        # "BNB/USDT",  # EXCLUDED: Model quality f1=0, precision=0, recall=0 - needs retraining
     ]
 
     def __init__(
@@ -60,10 +60,10 @@ class CoinSelector:
         lookback: int = 240,
         top_k: int = 4,
         min_atr_pct: float = 0.0008,
-        soft_min_volume_ratio: float = 0.12,  # Reduced from 0.15 - allow lower vol in quiet markets
-        rsi_long_min: float = 38.0,  # Reduced from 40.0 - match strategy.py
-        rsi_long_max: float = 70.0,  # Reduced from 74.0 - tighter than strategy (72.0) to avoid over-extended entries
-        min_adx: float = 17.0,  # Reduced from 20.0 - selector should be looser than runner
+        soft_min_volume_ratio: float = 0.10,  # Reduced from 0.12 - allow lower vol in quiet markets
+        rsi_long_min: float = 28.0,  # CRITICAL FIX: Reduced from 38.0 - catch oversold bounces during corrections
+        rsi_long_max: float = 76.0,  # Increased from 70.0 - relax upper bound to match strategy (75.0)
+        min_adx: float = 14.0,  # Reduced from 17.0 - selector looser than runner (16.0 weak_trend minimum)
         exchange_name: str = "binance",
         exchange_fallbacks: list[str] | None = None,
         exchange_timeout_ms: int = 20000,
@@ -182,10 +182,10 @@ class CoinSelector:
             # Use the actual model threshold as the reference, not a fixed value.
             # The hard reject margin is tighter than execution to let borderline
             # candidates through CoinSelector without blocking strong-trend symbols.
-            # CRITICAL FIX: Cap adjustment at +2% to prevent over-optimization
-            base_threshold = 0.48
+            # CRITICAL FIX: Increased from 0.48 to 0.515 - need 51.5% for positive edge after fees
+            base_threshold = 0.515
             dynamic_adjustment = model_long_th - base_threshold
-            max_adjustment = 0.02
+            max_adjustment = 0.015  # Reduced from 0.02 - tighter selector/runner alignment
             capped_adjustment = min(dynamic_adjustment, max_adjustment)
             adaptive_long_th = base_threshold + capped_adjustment
 

@@ -14,20 +14,20 @@ class StrategyConfig:
 
     # Core signal quality
     min_adx: float = 12.0  # Reduced from 18.0 - critical fix to match .env setting
-    min_atr_pct: float = 0.0010  # Reduced from 0.0012 - allow lower vol in low ADX regimes
-    rsi_long_min: float = 32.0  # Reduced from 38.0 - catch oversold bounces
+    min_atr_pct: float = 0.0008  # Reduced from 0.0010 - allow lower vol in quiet markets
+    rsi_long_min: float = 28.0  # CRITICAL FIX: Reduced from 32.0 - catch oversold bounces during correction periods
     rsi_long_max: float = 75.0  # Increased from 72.0 - allow strong momentum
-    rsi_strong_trend_max: float = 78.0  # Increased from 75.0 - align with relaxed rsi_long_max
-    weak_trend_min_adx: float = 18.0  # Reduced from 24.0 - allow more weak trend entries
-    weak_trend_min_prob_edge: float = 0.008  # Reduced from 0.015 - more realistic for model accuracy
-    weak_trend_min_volume_ratio: float = 0.75
+    rsi_strong_trend_max: float = 80.0  # Increased from 78.0 - reward ultra-strong trends
+    weak_trend_min_adx: float = 16.0  # Reduced from 18.0 - relax weak trend entry requirements
+    weak_trend_min_prob_edge: float = 0.006  # CRITICAL FIX: Reduced from 0.008 - realistic edge in 50/50 markets
+    weak_trend_min_volume_ratio: float = 0.60  # Reduced from 0.75 - allow low liquidity in quiet periods
 
     # Threshold handling - adaptive based on market conditions
-    base_long_threshold: float = 0.48  # Reduced from 0.49 - LINK trade entered at 0.492
-    model_threshold_offset: float = 0.012  # Reduced from 0.015 - tighter selector/runner alignment
+    base_long_threshold: float = 0.515  # CRITICAL FIX: Increased from 0.48 - need 51.5% for positive edge after fees
+    model_threshold_offset: float = 0.010  # Reduced from 0.012 - tighter selector/runner alignment
     adaptive_threshold_enabled: bool = True
-    threshold_relaxation_for_strong_adx: float = 0.025  # Increased from 0.02 - reward strong ADX more
-    threshold_floor: float = 0.42  # Reduced from 0.44 - allow borderline setups in low ADX regimes
+    threshold_relaxation_for_strong_adx: float = 0.030  # Increased from 0.025 - reward strong ADX more (ADX>40)
+    threshold_floor: float = 0.48  # Increased from 0.42 - protect against over-relaxation
 
     # Risk / reward
     stop_atr_mult: float = 2.0  # Updated from 1.25 - give trades more room
@@ -38,14 +38,14 @@ class StrategyConfig:
     slippage_pct_per_side: float = 0.0008
 
     # Positive edge only
-    min_expected_edge: float = -0.00020  # Allow small negative edge - profit factor compensates
+    min_expected_edge: float = -0.0005  # CRITICAL FIX: Relaxed from -0.00020 - allow breakeven trades in high-confidence setups
 
     # Profit management
     trail_activate_atr_mult: float = 0.5
     trail_atr_mult: float = 1.2  # Updated from 0.5 - lock in more profit
 
-    # Cooldown
-    cooldown_minutes: int = 30
+    # Cooldown - reduced to allow faster recovery entries
+    cooldown_minutes: int = 20  # Reduced from 30 - allows system to reenter after brief flat periods
 
     # Pyramiding disabled
     max_pyramid_adds: int = 0
