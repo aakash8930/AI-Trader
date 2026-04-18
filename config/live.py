@@ -47,26 +47,26 @@ class LiveSettings:
 
     lookback: int = 300
 
-    # Strategy configuration
-    strategy_min_prob: float = 0.48  # Reduced from 0.49 - LINK trade entered at 0.492
-    strategy_min_adx: float = 18.0  # Reduced from 20.0 - logs showed 3hr ADX compression (16-19)
-    strategy_min_atr_pct: float = 0.0010  # Reduced from 0.0011 - allow lower vol in quiet markets
-    strategy_rsi_long_min: float = 38.0  # Reduced from 40.0 - catch early momentum turns
-    strategy_rsi_long_max: float = 72.0  # Increased from 68.0 - strong trends push RSI higher
-    strategy_weak_trend_min_adx: float = 18.0  # ✅ Reduced from 24.0
-    strategy_weak_trend_min_prob_edge: float = 0.015  # ✅ Reduced from 0.020
-    strategy_weak_trend_min_volume_ratio: float = 0.75  # ✅ Reduced from 0.90
+    # Strategy configuration - SYNCED WITH strategy.py (2026-04-18)
+    strategy_min_prob: float = 0.515  # Increased from 0.48 - need 51.5% for positive edge after fees
+    strategy_min_adx: float = 12.0  # Reduced from 18.0 - critical fix to match strategy.py
+    strategy_min_atr_pct: float = 0.0008  # Reduced from 0.0010 - allow lower vol in quiet markets
+    strategy_rsi_long_min: float = 28.0  # CRITICAL FIX: Reduced from 38.0 - catch oversold bounces during corrections
+    strategy_rsi_long_max: float = 75.0  # Increased from 72.0 - allow strong momentum
+    strategy_weak_trend_min_adx: float = 16.0  # Reduced from 18.0 - relax weak trend entry requirements
+    strategy_weak_trend_min_prob_edge: float = 0.006  # CRITICAL FIX: Reduced from 0.015 - realistic edge in 50/50 markets
+    strategy_weak_trend_min_volume_ratio: float = 0.60  # Reduced from 0.75 - allow low liquidity in quiet periods
     strategy_fee_pct_per_side: float = 0.0010
     strategy_slippage_pct_per_side: float = 0.0008
-    strategy_min_expected_edge: float = 0.00008
-    strategy_stop_atr_mult: float = 1.25  # Match strategy.py - reduced from 1.50
-    strategy_take_atr_mult: float = 2.75  # Match strategy.py - increased from 2.50
-    strategy_trail_atr_mult: float = 0.5  # Match strategy.py
+    strategy_min_expected_edge: float = -0.0005  # CRITICAL FIX: Relaxed from 0.00008 - allow breakeven trades in high-confidence setups
+    strategy_stop_atr_mult: float = 2.0  # Updated from 1.25 - give trades more room
+    strategy_take_atr_mult: float = 2.5  # Updated from 2.75 - realistic targets
+    strategy_trail_atr_mult: float = 1.2  # Updated from 0.5 - lock in more profit
 
-    # Adaptive threshold settings
+    # Adaptive threshold settings - SYNCED WITH strategy.py
     strategy_adaptive_threshold: bool = True
-    strategy_threshold_relaxation: float = 0.02
-    strategy_threshold_floor: float = 0.42
+    strategy_threshold_relaxation: float = 0.030  # Increased from 0.02 - reward strong ADX more (ADX>40)
+    strategy_threshold_floor: float = 0.48  # Increased from 0.42 - protect against over-relaxation
 
     # Universe / selector configuration
     selector_top_k_multiplier: int = 2
@@ -110,23 +110,23 @@ class LiveSettings:
             min_model_val_precision=_env_float("MIN_MODEL_VAL_PRECISION", 0.10),
             min_model_val_recall=_env_float("MIN_MODEL_VAL_RECALL", 0.10),
             lookback=_env_int("LOOKBACK_BARS", 300),
-            strategy_min_prob=_env_float("STRATEGY_MIN_PROB", 0.49),
-            strategy_min_adx=_env_float("STRATEGY_MIN_ADX", 18.0),
-            strategy_min_atr_pct=_env_float("STRATEGY_MIN_ATR_PCT", 0.0010),
-            strategy_rsi_long_min=_env_float("STRATEGY_RSI_LONG_MIN", 38.0),
-            strategy_rsi_long_max=_env_float("STRATEGY_RSI_LONG_MAX", 72.0),
-            strategy_weak_trend_min_adx=_env_float("STRATEGY_WEAK_TREND_MIN_ADX", 18.0),
-            strategy_weak_trend_min_prob_edge=_env_float("STRATEGY_WEAK_TREND_MIN_PROB_EDGE", 0.015),
-            strategy_weak_trend_min_volume_ratio=_env_float("STRATEGY_WEAK_TREND_MIN_VOLUME_RATIO", 0.75),
+            strategy_min_prob=_env_float("STRATEGY_MIN_PROB", 0.515),
+            strategy_min_adx=_env_float("STRATEGY_MIN_ADX", 12.0),
+            strategy_min_atr_pct=_env_float("STRATEGY_MIN_ATR_PCT", 0.0008),
+            strategy_rsi_long_min=_env_float("STRATEGY_RSI_LONG_MIN", 28.0),
+            strategy_rsi_long_max=_env_float("STRATEGY_RSI_LONG_MAX", 75.0),
+            strategy_weak_trend_min_adx=_env_float("STRATEGY_WEAK_TREND_MIN_ADX", 16.0),
+            strategy_weak_trend_min_prob_edge=_env_float("STRATEGY_WEAK_TREND_MIN_PROB_EDGE", 0.006),
+            strategy_weak_trend_min_volume_ratio=_env_float("STRATEGY_WEAK_TREND_MIN_VOLUME_RATIO", 0.60),
             strategy_fee_pct_per_side=_env_float("STRATEGY_FEE_PCT_PER_SIDE", 0.0010),
             strategy_slippage_pct_per_side=_env_float("STRATEGY_SLIPPAGE_PCT_PER_SIDE", 0.0008),
-            strategy_min_expected_edge=_env_float("STRATEGY_MIN_EXPECTED_EDGE", 0.00008),
-            strategy_stop_atr_mult=_env_float("STRATEGY_STOP_ATR_MULT", 1.25),
-            strategy_take_atr_mult=_env_float("STRATEGY_TAKE_ATR_MULT", 2.75),
-            strategy_trail_atr_mult=_env_float("STRATEGY_TRAIL_ATR_MULT", 0.5),
+            strategy_min_expected_edge=_env_float("STRATEGY_MIN_EXPECTED_EDGE", -0.0005),
+            strategy_stop_atr_mult=_env_float("STRATEGY_STOP_ATR_MULT", 2.0),
+            strategy_take_atr_mult=_env_float("STRATEGY_TAKE_ATR_MULT", 2.5),
+            strategy_trail_atr_mult=_env_float("STRATEGY_TRAIL_ATR_MULT", 1.2),
             strategy_adaptive_threshold=_env_bool("STRATEGY_ADAPTIVE_THRESHOLD", True),
-            strategy_threshold_relaxation=_env_float("STRATEGY_THRESHOLD_RELAXATION", 0.02),
-            strategy_threshold_floor=_env_float("STRATEGY_THRESHOLD_FLOOR", 0.42),
+            strategy_threshold_relaxation=_env_float("STRATEGY_THRESHOLD_RELAXATION", 0.030),
+            strategy_threshold_floor=_env_float("STRATEGY_THRESHOLD_FLOOR", 0.48),
             selector_top_k_multiplier=_env_int("SELECTOR_TOP_K_MULTIPLIER", 2),
             selector_min_atr_pct=_env_float("SELECTOR_MIN_ATR_PCT", 0.0008),
             selector_soft_min_volume_ratio=_env_float("SELECTOR_SOFT_MIN_VOLUME_RATIO", 0.12),
